@@ -5,7 +5,7 @@ An Android app that teaches graphic design, plus a builder for ready-made UI blo
 
 **Kotlin · Jetpack Compose · Material 3 · Arabic (RTL) & English · Auto / light / dark theme**
 
-📦 Ready-to-install APK: [`release/eyn-1.0.0.apk`](release/eyn-1.0.0.apk)
+📦 Ready-to-install APK: [`release/eyn-1.1.0.apk`](release/eyn-1.1.0.apk)
 
 | Home | Challenge | Lesson | Studio | Page builder | Canvas editor |
 |---|---|---|---|---|---|
@@ -33,13 +33,22 @@ An Android app that teaches graphic design, plus a builder for ready-made UI blo
 5. **Export**: presentation board PNG + PDF, a PNG per page, HTML/CSS code and React Native code.
 
 ### القوالب الحرة · Freeform templates
-Ready templates: buttons, cards, headers, footers, login/sign-up, landing pages and pricing. The editor lets you:
-- **drag** elements to move them, with a snap grid and center guides
-- **resize** with the corner handle
-- change color, text, font size, alignment, corner radius, border and opacity
-- use **layers** to reorder, show/hide, duplicate and delete
-- undo/redo, zoom, rename, add new elements
-- save to the gallery or share as PNG
+Ready templates: buttons, cards, headers, footers, login/sign-up, landing pages and pricing. Or start from a blank canvas (phone, post, story, cover, A4).
+
+| All elements | Layout | Style | Content |
+|---|---|---|---|
+| ![](docs/screens/24_canvas_all_types.jpg) | ![](docs/screens/25_canvas_layout.jpg) | ![](docs/screens/26_canvas_style.jpg) | ![](docs/screens/27_canvas_content.jpg) |
+
+- **17 elements**: shape, card, text, button, chip, input, search bar, image, avatar, circle, icon, divider, checkbox, toggle, slider, progress bar, star rating.
+- **Precise controls**: − / + steppers (hold to repeat) with an editable value for width, height, X, Y, rotation, font size, padding, radius, border, shadow, opacity and more, plus a slider for coarse moves.
+- **Alignment**: drag snaps to the canvas and to other elements' edges and centers with pink guides. One tap aligns or **centers an element inside the element beneath it** (or the canvas), or makes it fill that container.
+- **Content and text**: font (IBM Plex / Cairo / Tajawal), bold, italic, underline, horizontal and vertical alignment, horizontal/vertical padding, line height, letter spacing.
+- **Style**: fill, gradient (3 directions), text/icon color, border, corner radius, shadow, opacity, copy/paste style.
+- **Real photos** from the phone (system photo picker, no permission needed) inside images, avatars, shapes, cards, buttons and the canvas background, with fill/fit modes.
+- **All 2,100+ Material icons** with search in Arabic and English.
+- Rotation, lock, show/hide, layers, z-order (forward, backward, to front, to back), duplicate, undo/redo, zoom.
+- The properties panel stays above the keyboard while you type.
+- Export: save to the gallery or share as PNG.
 
 Arabic templates are mirrored automatically for right-to-left reading.
 
