@@ -41,7 +41,10 @@ data class ColorPair(val fg: Long, val bg: Long)
 // ---------------------------------------------------------------- Freeform canvas
 
 @Serializable
-enum class ElType { BOX, TEXT, BUTTON, INPUT, IMAGE, CIRCLE, ICON, DIVIDER }
+enum class ElType {
+    BOX, TEXT, BUTTON, INPUT, IMAGE, CIRCLE, ICON, DIVIDER,
+    CARD, SEARCH, CHIP, CHECKBOX, TOGGLE, SLIDER, PROGRESS, RATING, AVATAR,
+}
 
 @Serializable
 data class El(
@@ -60,6 +63,22 @@ data class El(
     val opacity: Float = 1f,
     val icon: String = "",
     val visible: Boolean = true,
+    val padH: Float = 0f,
+    val padV: Float = 0f,
+    val vAlign: Int = 1,        // 0 top, 1 center, 2 bottom
+    val rotation: Float = 0f,
+    val shadow: Float = 0f,
+    val font: Int = 0,          // 0 IBM Plex, 1 Cairo, 2 Tajawal
+    val lineHeight: Float = 1.35f,
+    val letterSpacing: Float = 0f,
+    val italic: Boolean = false,
+    val underline: Boolean = false,
+    val bg2: Long? = null,      // gradient end colour
+    val gradDir: Int = 0,       // 0 vertical, 1 horizontal, 2 diagonal
+    val image: String = "",     // absolute path of an imported photo
+    val fit: Int = 0,           // 0 crop, 1 fit
+    val value: Float = 0.6f,    // progress / slider / rating / toggle / checkbox state
+    val locked: Boolean = false,
 )
 
 @Serializable
@@ -71,6 +90,7 @@ data class Design(
     val h: Float,
     val bg: Long,
     val els: List<El>,
+    val bgImage: String = "",
     val updated: Long = System.currentTimeMillis(),
 )
 

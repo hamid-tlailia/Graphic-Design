@@ -7,7 +7,13 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import android.graphics.Canvas
 import androidx.test.core.app.ApplicationProvider
+import com.eyn.designtrainer.builder.EditorState
 import com.eyn.designtrainer.builder.Templates
+import com.eyn.designtrainer.builder.blankDesign
+import com.eyn.designtrainer.data.Design
+import com.eyn.designtrainer.data.ElType
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.performClick
 import com.eyn.designtrainer.builder.starterPage
 import com.eyn.designtrainer.builder.toDesign
 import com.eyn.designtrainer.data.AppData
@@ -51,12 +57,24 @@ class ScreenshotTest {
             activity = (0..6).associate { today - it to listOf(2, 5, 1, 4, 3, 6, 0)[it] },
             completed = setOf("grid8"), progress = mapOf("hierarchy" to 60),
             dailyDay = today, dailyDone = 3,
-            designs = listOf(Templates.first { it.id == "login_classic" }.toDesign(lang).copy(id = "d1")),
+            designs = listOf(Templates.first { it.id == "login_classic" }.toDesign(lang).copy(id = "d1"), allTypes(lang)),
             projects = listOf(withPages),
         )
     }
 
-    private fun shot(name: String, route: String, lang: Lang = Lang.AR, dark: Boolean = false, d: AppData = data(lang)) {
+    /** A canvas holding one of every element type, laid out in a grid. */
+    private fun allTypes(lang: Lang): Design {
+        val st = EditorState(blankDesign(lang).copy(id = "d2", h = 700f))
+        ElType.entries.forEachIndexed { i, t ->
+            st.add(t, lang)
+            val id = st.selectedId!!
+            val col = i % 2; val row = i / 2
+            st.updateEl(id) { it.copy(x = 16f + col * 172f, y = 16f + row * 76f, w = minOf(it.w, 156f), h = if (t == ElType.CIRCLE || t == ElType.AVATAR) 56f else minOf(it.h, 60f)) }
+        }
+        return st.design
+    }
+
+    private fun shot(name: String, route: String, lang: Lang = Lang.AR, dark: Boolean = false, d: AppData = data(lang), actions: () -> Unit = {}) {
         val vm = AppViewModel(ApplicationProvider.getApplicationContext<Application>())
         rule.setContent {
             CompositionLocalProvider(LocalData provides d, LocalVm provides vm) {
@@ -65,6 +83,8 @@ class ScreenshotTest {
         }
         rule.mainClock.autoAdvance = false
         repeat(25) { rule.mainClock.advanceTimeBy(100) }
+        actions()
+        repeat(15) { rule.mainClock.advanceTimeBy(100) }
         val view = rule.activity.window.decorView
         val bmp = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
         view.draw(Canvas(bmp))
@@ -92,5 +112,15 @@ class ScreenshotTest {
     @Test fun s20_home_dark() = shot("20_home_dark", Routes.HOME, dark = true)
     @Test fun s21_home_en() = shot("21_home_en", Routes.HOME, lang = Lang.EN)
     @Test fun s22_canvas_en_dark() = shot("22_canvas_en_dark", Routes.canvas("d1"), lang = Lang.EN, dark = true)
+    private fun click(text: String) {
+        rule.onAllNodesWithText(text, substring = true)[0].performClick()
+        repeat(6) { rule.mainClock.advanceTimeBy(100) }
+    }
+
+    @Test fun s24_canvas_all_types() = shot("24_canvas_all_types", Routes.canvas("d2"))
+    @Test fun s25_canvas_layout() = shot("25_canvas_layout", Routes.canvas("d1")) { click("مرحباً بعودتك"); click("الحجم والموضع") }
+    @Test fun s26_canvas_style() = shot("26_canvas_style", Routes.canvas("d2")) { click("بطاقة"); click("الألوان") }
+    @Test fun s27_canvas_content() = shot("27_canvas_content", Routes.canvas("d1")) { click("مرحباً بعودتك"); click("المحتوى") }
+    @Test fun s28_canvas_value() = shot("28_canvas_value", Routes.canvas("d2")) { click("تذكرني"); click("المحتوى") }
     @Test fun s23_build_dark() = shot("23_build_dark", Routes.build("p1"), dark = true)
 }
