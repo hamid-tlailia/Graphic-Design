@@ -230,7 +230,7 @@ private fun BottomBar(current: String?, onSelect: (String) -> Unit) {
         Tab(Routes.HOME, Icons.Rounded.Home, "الرئيسية", "Home"),
         Tab(Routes.LESSONS, Icons.AutoMirrored.Rounded.MenuBook, "الدروس", "Lessons"),
         Tab(Routes.STUDIO, Icons.Rounded.Dashboard, "الاستوديو", "Studio"),
-        Tab(Routes.PRACTICE, Icons.Rounded.Draw, "تطبيق عملي", "Practice"),
+        Tab(Routes.PRACTICE, Icons.Rounded.Draw, "تمارين", "Practice"),
         Tab(Routes.PROFILE, Icons.Rounded.Person, "حسابي", "Profile"),
     )
     Column(
@@ -262,6 +262,7 @@ private fun BottomBar(current: String?, onSelect: (String) -> Unit) {
                         style = Type.small.copy(fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal),
                         color = fg,
                         maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     )
                 }
             }

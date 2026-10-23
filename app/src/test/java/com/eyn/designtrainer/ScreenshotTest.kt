@@ -58,7 +58,7 @@ class ScreenshotTest {
             lang = if (lang == Lang.AR) "ar" else "en", onboarded = true, name = if (lang == Lang.AR) "حميد" else "Hamid",
             points = 340, answered = 40, correct = 34, streak = 12, lastDay = today,
             activity = (0..6).associate { today - it to listOf(2, 5, 1, 4, 3, 6, 0)[it] },
-            completed = setOf("grid8"), progress = mapOf("hierarchy" to 60),
+            completed = setOf("grid8"), progress = mapOf("hierarchy" to 60), bookmarks = setOf("grid8", "colorwheel"),
             dailyDay = today, dailyDone = 3,
             designs = listOf(Templates.first { it.id == "login_classic" }.toDesign(lang).copy(id = "d1"), allTypes(lang)),
             projects = listOf(withPages),
@@ -159,5 +159,6 @@ class ScreenshotTest {
     @Test fun s35_studio_logos() = shot("35_studio_logos", Routes.STUDIO) { click("الشعارات") }
     @Test fun s36_canvas_size() = shot("36_canvas_size", Routes.canvas("d2")) { click("الألوان"); click("جوال 360") }
     @Test fun s37_identity_icons() = shot("37_identity_icons", Routes.identity("p1")) { click("محدد") }
+    @Test fun s38_saved() = shot("38_saved", Routes.LESSONS) { click("كل الدروس"); click("المحفوظة") }
     @Test fun s23_build_dark() = shot("23_build_dark", Routes.build("p1"), dark = true)
 }

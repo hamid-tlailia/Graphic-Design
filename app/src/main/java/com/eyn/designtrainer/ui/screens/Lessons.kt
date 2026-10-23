@@ -95,12 +95,13 @@ fun LessonsScreen() {
     var filter by rememberSaveable { mutableIntStateOf(0) }
     var searching by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
-    val cats = listOf<Cat?>(null) + Cat.entries
+    val cats = listOf<Cat?>(null, null) + Cat.entries // 0 all, 1 saved, then categories
     val current = Content.lessons.indexOfFirst { it.id !in d.completed }
     var pathView by rememberSaveable { mutableStateOf(true) }
 
     Column(Modifier.fillMaxSize()) {
         TopBar(tr("الدروس", "Lessons"), big = true) {
+            SquareIconButton(Icons.Rounded.Bookmark, { pathView = false; searching = false; filter = 1 }, tint = if (!pathView && filter == 1) c.accent else c.text)
             SquareIconButton(if (searching) Icons.Rounded.Close else Icons.Rounded.Search, {
                 searching = !searching; if (!searching) query = ""
             })
@@ -123,13 +124,17 @@ fun LessonsScreen() {
             return@Column
         }
         com.eyn.designtrainer.ui.components.ChipRow(
-            cats.map { it?.label?.t() ?: tr("الكل", "All") }, filter, { filter = it },
+            cats.mapIndexed { i, cat -> cat?.label?.t() ?: if (i == 0) tr("الكل", "All") else tr("🔖 المحفوظة (${d.bookmarks.size})", "🔖 Saved (${d.bookmarks.size})") }, filter, { filter = it },
             Modifier.padding(vertical = 8.dp),
         )
         val list = Content.lessons.withIndex().filter { (_, l) ->
-            (cats[filter] == null || l.cat == cats[filter]) &&
+            (if (filter == 1) l.id in d.bookmarks else filter == 0 || l.cat == cats[filter]) &&
                 (query.isBlank() || l.title.get(lang).contains(query, true))
         }
+        if (filter == 1 && list.isEmpty()) Text(
+            tr("لا توجد دروس محفوظة بعد. افتح أي درس واضغط أيقونة الإشارة 🔖 في الأعلى.", "No saved lessons yet. Open a lesson and tap the bookmark 🔖 at the top."),
+            style = Type.body, color = c.muted, modifier = Modifier.padding(24.dp),
+        )
         LazyColumn(
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),

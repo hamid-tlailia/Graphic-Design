@@ -30,3 +30,12 @@ val isArabic: Boolean
 /** Option letters: أ ب ج د / A B C D */
 fun optionLetter(i: Int, lang: Lang) =
     if (lang == Lang.AR) listOf("أ", "ب", "ج", "د", "هـ")[i] else ('A' + i).toString()
+
+/** "N days" with correct Arabic number agreement (يوم واحد، يومان، 3 أيام، 11 يوماً). */
+fun daysText(n: Int, lang: Lang): String = if (lang == Lang.EN) (if (n == 1) "1 day" else "$n days") else when {
+    n == 0 -> "0 يوم"
+    n == 1 -> "يوم واحد"
+    n == 2 -> "يومان"
+    n % 100 in 3..10 -> "$n أيام"
+    else -> "$n يوماً"
+}

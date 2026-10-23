@@ -119,7 +119,7 @@ fun PracticeHubScreen() {
         Tool(Icons.Rounded.Dashboard, c.primary, c.lilac, tr("استوديو البناء", "Build studio"), tr("قوالب جاهزة: هيدر، فوتر، دخول، بطاقات وأزرار", "Ready templates: headers, footers, login, cards, buttons"), Routes.STUDIO),
     )
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        TopBar(tr("تطبيق عملي", "Practice"), big = true)
+        TopBar(tr("تمارين", "Practice"), big = true)
         Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
                 tr("نجحت في ${d.practiceWins} تمارين عملية", "You've passed ${d.practiceWins} practice rounds"),

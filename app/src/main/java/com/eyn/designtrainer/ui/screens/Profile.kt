@@ -20,6 +20,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Brush
+import androidx.compose.material.icons.rounded.Bookmark
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.MilitaryTech
 import androidx.compose.material.icons.rounded.Settings
@@ -42,6 +44,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
 import com.eyn.designtrainer.data.Cat
 import com.eyn.designtrainer.data.Content
 import com.eyn.designtrainer.i18n.tr
@@ -95,10 +98,31 @@ fun ProfileScreen() {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 StatCard("${d.points}", tr("نقطة", "Points"), Modifier.weight(1f))
                 StatCard("$accuracy%", tr("دقة الإجابات", "Accuracy"), Modifier.weight(1f))
-                StatCard("${d.streak}", tr("يوم متواصل", "Day streak"), Modifier.weight(1f))
+                StatCard("${d.streak}", tr("أيام متواصلة", "Day streak"), Modifier.weight(1f))
             }
             Spacer(Modifier.height(12.dp))
             WeekChart()
+            Spacer(Modifier.height(20.dp))
+            Text(tr("دروسي المحفوظة", "Saved lessons"), style = Type.h3, color = c.text)
+            Spacer(Modifier.height(10.dp))
+            val saved = Content.lessons.filter { it.id in d.bookmarks }
+            if (saved.isEmpty()) Text(
+                tr("اضغط أيقونة الإشارة 🔖 في أعلى أي درس لحفظه هنا.", "Tap the bookmark 🔖 at the top of any lesson to save it here."),
+                style = Type.small, color = c.muted,
+            )
+            saved.forEach { l ->
+                EynCard(Modifier.fillMaxWidth().padding(bottom = 8.dp), onClick = { nav.navigate(Routes.lesson(l.id)) }) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Bookmark, null, tint = c.accent, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(l.title.t(), style = Type.label, color = c.text)
+                            Text(l.cat.label.t() + tr(" · ${l.minutes} دقائق", " · ${l.minutes} min"), style = Type.small, color = c.muted)
+                        }
+                        if (l.id in d.completed) Icon(Icons.Rounded.CheckCircle, null, tint = c.success, modifier = Modifier.size(18.dp))
+                    }
+                }
+            }
             Spacer(Modifier.height(20.dp))
             Text(tr("الأوسمة", "Badges"), style = Type.h3, color = c.text)
             Spacer(Modifier.height(12.dp))
@@ -134,7 +158,10 @@ private fun WeekChart() {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
                     Box(Modifier.width(18.dp).height(h).clip(RoundedCornerShape(6.dp)).background(if (isToday) c.primary else c.lilac))
                     Spacer(Modifier.height(8.dp))
-                    Text(dayLabel(day.dayOfWeek), style = Type.small, color = if (isToday) c.primary else c.muted)
+                    Text(
+                        dayLabel(day.dayOfWeek), style = Type.small.copy(fontSize = 10.sp, fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal),
+                        color = if (isToday) c.primary else c.muted, maxLines = 1, softWrap = false,
+                    )
                 }
             }
         }
@@ -143,13 +170,13 @@ private fun WeekChart() {
 
 @Composable
 private fun dayLabel(d: DayOfWeek) = when (d) {
-    DayOfWeek.SATURDAY -> tr("س", "Sa")
-    DayOfWeek.SUNDAY -> tr("ح", "Su")
-    DayOfWeek.MONDAY -> tr("ن", "Mo")
-    DayOfWeek.TUESDAY -> tr("ث", "Tu")
-    DayOfWeek.WEDNESDAY -> tr("ر", "We")
-    DayOfWeek.THURSDAY -> tr("خ", "Th")
-    DayOfWeek.FRIDAY -> tr("ج", "Fr")
+    DayOfWeek.SATURDAY -> tr("السبت", "Sat")
+    DayOfWeek.SUNDAY -> tr("الأحد", "Sun")
+    DayOfWeek.MONDAY -> tr("الإثنين", "Mon")
+    DayOfWeek.TUESDAY -> tr("الثلاثاء", "Tue")
+    DayOfWeek.WEDNESDAY -> tr("الأربعاء", "Wed")
+    DayOfWeek.THURSDAY -> tr("الخميس", "Thu")
+    DayOfWeek.FRIDAY -> tr("الجمعة", "Fri")
 }
 
 @Composable
@@ -205,7 +232,7 @@ fun SettingsScreen() {
                 Text(tr("عن التطبيق", "About"), style = Type.label, color = c.text)
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    tr("عين · مدرّب التصميم. درّب عينك، صمّم بثقة.\nالإصدار 1.3.1", "Eyn · Design Trainer. Train your eye, design with confidence.\nVersion 1.3.1"),
+                    tr("عين · مدرّب التصميم. درّب عينك، صمّم بثقة.\nالإصدار 1.3.2", "Eyn · Design Trainer. Train your eye, design with confidence.\nVersion 1.3.2"),
                     style = Type.small, color = c.muted,
                 )
             }

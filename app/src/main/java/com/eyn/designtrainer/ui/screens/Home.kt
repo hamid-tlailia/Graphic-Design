@@ -37,12 +37,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.eyn.designtrainer.data.Cat
 import com.eyn.designtrainer.data.Content
 import com.eyn.designtrainer.i18n.tr
+import com.eyn.designtrainer.i18n.daysText
+import com.eyn.designtrainer.i18n.LocalLang
 import com.eyn.designtrainer.ui.LocalData
 import com.eyn.designtrainer.ui.LocalNav
 import com.eyn.designtrainer.ui.LocalVm
@@ -60,7 +64,6 @@ import com.eyn.designtrainer.ui.components.dotPattern
 import com.eyn.designtrainer.ui.theme.Eyn
 import com.eyn.designtrainer.ui.theme.Type
 import java.time.LocalDate
-import java.time.LocalTime
 
 data class CatStyle(val icon: ImageVector, val tint: Color, val bg: Color)
 
@@ -89,7 +92,6 @@ fun HomeScreen() {
     val done = vm.dailyDoneToday(d)
     val daily = Content.daily(LocalDate.now().toEpochDay())
     val nextQ = daily.getOrNull(done) ?: daily.last()
-    val morning = LocalTime.now().hour < 12
 
     Column(
         Modifier
@@ -101,11 +103,14 @@ fun HomeScreen() {
         Spacer(Modifier.height(16.dp))
         Row(Modifier.appear(0), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(if (morning) tr("صباح الخير", "Good morning") else tr("مساء الخير", "Good evening"), style = Type.small, color = c.muted)
-                Text(d.name.ifBlank { tr("مصمم المستقبل", "Future designer") }, style = Type.h1, color = c.text)
+                Text(
+                    d.name.ifBlank { tr("مصمم المستقبل", "Future designer") },
+                    style = Type.h1.copy(fontSize = 30.sp, lineHeight = 40.sp, brush = Brush.linearGradient(listOf(c.primary, c.accent))),
+                    maxLines = 1,
+                )
                 Spacer(Modifier.height(4.dp))
                 Pill(
-                    tr("${d.streak} يوماً", "${d.streak} days"),
+                    daysText(d.streak, LocalLang.current),
                     bg = c.accentSoft, fg = c.accent, icon = Icons.Rounded.LocalFireDepartment,
                 )
             }

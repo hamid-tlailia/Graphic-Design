@@ -32,6 +32,7 @@ object Path {
 
     /** Unit 1 is open; every later unit opens once any lesson of the unit before it is finished. */
     fun isUnlocked(lessonId: String, completed: Set<String>): Boolean {
+        if (lessonId in completed) return true
         val u = unitOf(lessonId)
         if (u <= 0) return true
         return units[u - 1].lessonIds.any { it in completed }

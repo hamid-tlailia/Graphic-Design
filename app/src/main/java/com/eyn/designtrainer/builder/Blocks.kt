@@ -550,7 +550,8 @@ private fun BlockContent(b: Block, p: AppProject, modifier: Modifier) {
         ) {
             b.itemsOr(lang).forEachIndexed { i, item ->
                 val on = i == b.active
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // Every tab gets the same width so the bar stays balanced whatever the labels are.
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(
                         Modifier.clip(CircleShape).background(if (on) t.surface else Color.Transparent).padding(horizontal = 12.dp, vertical = 3.dp),
                         contentAlignment = Alignment.Center,
