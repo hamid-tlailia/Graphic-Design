@@ -37,6 +37,9 @@ const val BOARD_WIDTH = 1680
 private const val PHONE_W = 360
 private const val SCREEN_H = 740
 
+/** Phone screen height shared by all pages on the board and in exported code. */
+fun boardScreenHeight(p: AppProject): Int = maxOf(SCREEN_H, (p.pages.maxOfOrNull { it.height } ?: 0f).toInt() + 34)
+
 /**
  * A single presentation image of the whole app: identity header (logo, app icon, palette,
  * typography, icon style) followed by every page in a phone frame, four per row.
@@ -122,9 +125,11 @@ private fun BoardContent(p: AppProject) {
         Spacer(Modifier.height(56.dp))
 
         // ------------------------------------------------------------ screens, 4 per row
+        // Every phone gets the same height: the tallest page, so no screen is cut short.
+        val screenH = boardScreenHeight(p)
         p.pages.chunked(4).forEachIndexed { r, row ->
             Row(horizontalArrangement = Arrangement.spacedBy(40.dp)) {
-                row.forEachIndexed { i, page -> BoardPhone(page, p, r * 4 + i + 1) }
+                row.forEachIndexed { i, page -> BoardPhone(page, p, r * 4 + i + 1, screenH) }
             }
             Spacer(Modifier.height(48.dp))
         }
@@ -146,13 +151,13 @@ private fun iconsOf(p: AppProject, lang: com.eyn.designtrainer.i18n.Lang): List<
 }
 
 @Composable
-private fun BoardPhone(page: Page, p: AppProject, number: Int) {
+private fun BoardPhone(page: Page, p: AppProject, number: Int, screenH: Int) {
     val t = p.theme()
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier.width(PHONE_W.dp).clip(RoundedCornerShape(52.dp)).background(Color(0xFF15131F)).padding(9.dp),
         ) {
-            Column(Modifier.fillMaxWidth().height(SCREEN_H.dp).clip(RoundedCornerShape(44.dp)).background(t.bg).clipToBounds()) {
+            Column(Modifier.fillMaxWidth().height(screenH.dp).clip(RoundedCornerShape(44.dp)).background(t.bg).clipToBounds()) {
                 // Fake status bar with the notch
                 Box(Modifier.fillMaxWidth().height(34.dp).padding(horizontal = 26.dp)) {
                     Text("9:41", fontFamily = t.font, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = t.ink, modifier = Modifier.align(Alignment.CenterStart))
@@ -161,7 +166,7 @@ private fun BoardPhone(page: Page, p: AppProject, number: Int) {
                         FontIcon("signal_cellular_alt", t.ink, 14f); FontIcon("wifi", t.ink, 14f); FontIcon("battery_full", t.ink, 14f)
                     }
                 }
-                PageView(page, p, minHeight = (SCREEN_H - 34).dp)
+                PageView(page, p, minHeight = (screenH - 34).dp)
             }
         }
         Spacer(Modifier.height(16.dp))

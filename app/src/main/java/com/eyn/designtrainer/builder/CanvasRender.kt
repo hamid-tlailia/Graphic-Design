@@ -105,7 +105,11 @@ val CanvasFonts: List<Pair<String, FontFamily>> get() = FontCatalog.map { it.nam
 
 private val ROUND_TYPES = setOf(ElType.CIRCLE, ElType.AVATAR)
 
-fun El.shape(scale: Float): Shape = if (type in ROUND_TYPES) CircleShape else RoundedCornerShape((radius * scale).dp)
+fun El.shape(scale: Float): Shape = when {
+    type in ROUND_TYPES -> CircleShape
+    type == ElType.SHAPE -> Shapes.ShapeOf(shape)
+    else -> RoundedCornerShape((radius * scale).dp)
+}
 
 fun El.fill(): Brush? {
     val a = bg.c()
@@ -153,7 +157,9 @@ fun RenderEl(e: El, scale: Float, modifier: Modifier = Modifier) {
         letterSpacing = sp(e.letterSpacing), textAlign = textAlign,
     )
     val fill = e.fill()
-    val hasBox = e.type !in setOf(ElType.TOGGLE, ElType.SLIDER, ElType.PROGRESS, ElType.RATING, ElType.CHECKBOX)
+    val hasBox = e.type !in setOf(ElType.TOGGLE, ElType.SLIDER, ElType.PROGRESS, ElType.RATING, ElType.CHECKBOX, ElType.PAYMENT)
+    // A frame draws its own decorated border instead of the plain one.
+    val plainBorder = hasBox && e.borderW > 0f && e.type != ElType.FRAME
 
     CompositionLocalProvider(LocalIconStyle provides e.iconStyle) {
     Box(
@@ -165,7 +171,7 @@ fun RenderEl(e: El, scale: Float, modifier: Modifier = Modifier) {
             .then(if (e.shadow > 0f && hasBox) Modifier.shadow((e.shadow * scale).dp, shape, clip = false) else Modifier)
             .then(if (hasBox) Modifier.clip(shape) else Modifier)
             .then(if (hasBox && fill != null) Modifier.background(fill, shape) else Modifier)
-            .then(if (hasBox && e.borderW > 0f) Modifier.border((e.borderW * scale).dp, e.borderColor.c(), shape) else Modifier),
+            .then(if (plainBorder) Modifier.border((e.borderW * scale).dp, e.borderColor.c(), shape) else Modifier),
     ) {
         if (e.backImage.isNotEmpty() && hasBox) PhotoImage(e.backImage, 0, Modifier.fillMaxSize())
         if (e.image.isNotEmpty() && hasBox) PhotoImage(e.image, e.fit, Modifier.fillMaxSize())
@@ -174,7 +180,7 @@ fun RenderEl(e: El, scale: Float, modifier: Modifier = Modifier) {
             ElType.TEXT -> Box(inner, contentAlignment = BiasAlignment(hBias, vBias)) {
                 Text(e.text, style = style, modifier = Modifier.fillMaxWidth())
             }
-            ElType.BUTTON, ElType.CHIP, ElType.CIRCLE -> if (e.text.isNotEmpty()) Box(inner.padding(horizontal = (4 * scale).dp), contentAlignment = BiasAlignment(hBias, vBias)) {
+            ElType.BUTTON, ElType.CHIP, ElType.CIRCLE, ElType.SHAPE -> if (e.text.isNotEmpty()) Box(inner.padding(horizontal = (4 * scale).dp), contentAlignment = BiasAlignment(hBias, vBias)) {
                 Text(e.text, style = style, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
             }
             ElType.INPUT -> Box(inner.padding(horizontal = (14 * scale).dp), contentAlignment = BiasAlignment(hBias, vBias)) {
@@ -234,6 +240,8 @@ fun RenderEl(e: El, scale: Float, modifier: Modifier = Modifier) {
                 val filled = (e.value * 5).roundToInt()
                 repeat(5) { i -> FontIcon(if (i < filled) "star" else "star_border", e.fg.c(), minOf(e.h, e.w / 5f) * scale) }
             }
+            ElType.FRAME -> Shapes.Frame(e.shape, e.borderColor.c(), e.borderW * scale, e.radius * scale)
+            ElType.PAYMENT -> Shapes.PaymentMark(e.icon, Modifier.fillMaxSize())
             ElType.BOX, ElType.CARD, ElType.DIVIDER -> {}
         }
     }

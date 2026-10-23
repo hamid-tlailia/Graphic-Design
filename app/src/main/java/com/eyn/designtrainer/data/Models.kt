@@ -44,6 +44,7 @@ data class ColorPair(val fg: Long, val bg: Long)
 enum class ElType {
     BOX, TEXT, BUTTON, INPUT, IMAGE, CIRCLE, ICON, DIVIDER,
     CARD, SEARCH, CHIP, CHECKBOX, TOGGLE, SLIDER, PROGRESS, RATING, AVATAR,
+    SHAPE, FRAME, PAYMENT,
 }
 
 @Serializable
@@ -81,6 +82,7 @@ data class El(
     val value: Float = 0.6f,    // progress / slider / rating / toggle / checkbox state
     val locked: Boolean = false,
     val iconStyle: Int = 0,     // IconFont style: 0 rounded, 1 solid, 2 outlined, 3 sharp, 4 two-tone
+    val shape: Int = 0,         // SHAPE: index into Shapes.all; FRAME: index into Shapes.frames
 )
 
 @Serializable
@@ -121,10 +123,22 @@ data class Block(
     val active: Int = 0,            // highlighted item (current tab in a tab bar)
     val widthPct: Float = 1f,       // content width as a fraction of the page
     val itemHeight: Float = 0f,     // button / field / image height (0 = default)
+    val body: String = "",          // long text (product description, alert details)
+    val price: String = "",         // product price
+    val icon: String = "",          // block-level icon (alerts)
+    val hidden: Set<String> = emptySet(), // optional parts the user switched off (see BlockOption)
 )
 
 @Serializable
-data class BlockItem(val label: String, val icon: String = "", val value: String = "", val image: String = "")
+data class BlockItem(
+    val label: String,
+    val icon: String = "",
+    val value: String = "",
+    val image: String = "",
+    val note: String = "",  // review text
+    val qty: Int = 1,       // cart quantity
+    val on: Boolean = false, // toggle / checkbox state
+)
 
 @Serializable
 data class Page(val id: String = newId(), val name: String, val blocks: List<Block> = emptyList(), val height: Float = 640f)

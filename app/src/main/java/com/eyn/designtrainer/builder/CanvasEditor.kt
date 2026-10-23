@@ -14,6 +14,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -66,13 +67,16 @@ import androidx.compose.material.icons.rounded.AlignHorizontalRight
 import androidx.compose.material.icons.rounded.AlignVerticalBottom
 import androidx.compose.material.icons.rounded.AlignVerticalCenter
 import androidx.compose.material.icons.rounded.AlignVerticalTop
+import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.CenterFocusStrong
 import androidx.compose.material.icons.rounded.CheckBox
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.ContentPaste
+import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.Crop169
+import androidx.compose.material.icons.rounded.CropFree
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.FitScreen
@@ -234,7 +238,7 @@ class EditorState(initial: Design) {
 
     private fun sync() { canUndo = undoStack.isNotEmpty(); canRedo = redoStack.isNotEmpty() }
 
-    fun add(type: ElType, lang: Lang) {
+    fun add(type: ElType, lang: Lang, variant: Int = 0, kind: String = "visa") {
         val ar = lang == Lang.AR
         fun s(a: String, e: String) = if (ar) a else e
         val (w, h) = when (type) {
@@ -253,23 +257,26 @@ class EditorState(initial: Design) {
             ElType.SLIDER -> 240f to 24f
             ElType.PROGRESS -> 240f to 8f
             ElType.RATING -> 140f to 24f
+            ElType.SHAPE -> if (variant in WIDE_SHAPES) 220f to 80f else 120f to 120f
+            ElType.FRAME -> design.w - 32f to design.h - 32f
+            ElType.PAYMENT -> 72f to 44f
         }
         val el = El(
             type = type,
             x = ((design.w - w) / 2).roundToInt().toFloat(),
-            y = ((minOf(design.h, 640f) - h) / 2).roundToInt().toFloat(),
+            y = if (type == ElType.FRAME) 16f else ((minOf(design.h, 640f) - h) / 2).roundToInt().toFloat(),
             w = w, h = h,
             bg = when (type) {
                 ElType.BOX, ElType.IMAGE, ElType.AVATAR, ElType.CHIP, ElType.PROGRESS, ElType.SLIDER -> LILAC
                 ElType.BUTTON, ElType.CHECKBOX, ElType.TOGGLE -> NAVY
                 ElType.INPUT, ElType.CARD -> WHITE
                 ElType.SEARCH -> CREAM
-                ElType.CIRCLE -> CORAL
+                ElType.CIRCLE, ElType.SHAPE -> CORAL
                 ElType.DIVIDER -> LINE
                 else -> CLEAR
             },
             fg = when (type) {
-                ElType.BUTTON, ElType.CIRCLE -> WHITE
+                ElType.BUTTON, ElType.CIRCLE, ElType.SHAPE -> WHITE
                 ElType.INPUT, ElType.SEARCH -> GRAY
                 ElType.ICON, ElType.IMAGE, ElType.AVATAR, ElType.CHIP, ElType.SLIDER -> NAVY
                 ElType.PROGRESS -> CORAL
@@ -291,14 +298,15 @@ class EditorState(initial: Design) {
                 ElType.BOX -> 12f; ElType.CARD -> 16f; ElType.BUTTON, ElType.INPUT -> 14f; ElType.IMAGE -> 16f
                 ElType.SEARCH -> 24f; ElType.CHIP -> 16f; ElType.PROGRESS -> 4f; else -> 0f
             },
-            borderW = if (type == ElType.INPUT) 1f else 0f,
-            borderColor = if (type == ElType.TOGGLE) 0xFFD5D3E0 else LINE,
+            borderW = when (type) { ElType.INPUT -> 1f; ElType.FRAME -> 3f; else -> 0f },
+            borderColor = when (type) { ElType.TOGGLE -> 0xFFD5D3E0; ElType.FRAME -> NAVY; else -> LINE },
             shadow = if (type == ElType.CARD) 8f else 0f,
             align = when (type) {
-                ElType.BUTTON, ElType.CIRCLE, ElType.CHIP -> 1
+                ElType.BUTTON, ElType.CIRCLE, ElType.CHIP, ElType.SHAPE -> 1
                 else -> if (ar) 2 else 0
             },
-            icon = if (type == ElType.ICON) "star" else "",
+            icon = when (type) { ElType.ICON -> "star"; ElType.PAYMENT -> kind; else -> "" },
+            shape = variant,
             value = when (type) { ElType.CHECKBOX, ElType.TOGGLE -> 1f; ElType.RATING -> 0.8f; ElType.SLIDER -> 0.5f; else -> 0.6f },
         )
         edit { it.copy(els = it.els + el) }
@@ -395,6 +403,9 @@ fun ElType.label(): L = when (this) {
     ElType.SLIDER -> L("منزلق", "Slider")
     ElType.PROGRESS -> L("شريط تقدّم", "Progress")
     ElType.RATING -> L("تقييم", "Rating")
+    ElType.SHAPE -> L("شكل", "Shape")
+    ElType.FRAME -> L("إطار مزخرف", "Decorative frame")
+    ElType.PAYMENT -> L("وسيلة دفع", "Payment mark")
 }
 
 private fun ElType.icon(): ImageVector = when (this) {
@@ -415,11 +426,17 @@ private fun ElType.icon(): ImageVector = when (this) {
     ElType.SLIDER -> Icons.Rounded.Tune
     ElType.PROGRESS -> Icons.Rounded.LinearScale
     ElType.RATING -> Icons.Rounded.StarHalf
+    ElType.SHAPE -> Icons.Rounded.Category
+    ElType.FRAME -> Icons.Rounded.CropFree
+    ElType.PAYMENT -> Icons.Rounded.CreditCard
 }
 
-private val TEXT_TYPES = setOf(ElType.TEXT, ElType.BUTTON, ElType.INPUT, ElType.CIRCLE, ElType.CHIP, ElType.SEARCH, ElType.CHECKBOX)
+/** Banner-like shapes start wide so a title fits inside. */
+private val WIDE_SHAPES = setOf(6, 14, 15, 18, 20, 22, 25, 26, 27, 28, 29)
+
+private val TEXT_TYPES = setOf(ElType.TEXT, ElType.BUTTON, ElType.INPUT, ElType.CIRCLE, ElType.CHIP, ElType.SEARCH, ElType.CHECKBOX, ElType.SHAPE)
 private val VALUE_TYPES = setOf(ElType.CHECKBOX, ElType.TOGGLE, ElType.SLIDER, ElType.PROGRESS, ElType.RATING)
-private val PHOTO_TYPES = setOf(ElType.IMAGE, ElType.AVATAR, ElType.BOX, ElType.CARD, ElType.CIRCLE, ElType.BUTTON)
+private val PHOTO_TYPES = setOf(ElType.IMAGE, ElType.AVATAR, ElType.BOX, ElType.CARD, ElType.CIRCLE, ElType.BUTTON, ElType.SHAPE)
 private val ROUND = setOf(ElType.CIRCLE, ElType.AVATAR)
 
 // ============================================================================ screen
@@ -992,7 +1009,7 @@ private fun AddPanel(state: EditorState, onIcon: () -> Unit) {
     val c = Eyn.c
     val lang = LocalLang.current
     PanelLabel(tr("أضف عنصراً إلى اللوحة", "Add an element to the canvas"))
-    ElType.entries.chunked(4).forEach { row ->
+    ElType.entries.filter { it !in GALLERY_TYPES }.chunked(4).forEach { row ->
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(bottom = 10.dp)) {
             row.forEach { t ->
                 Column(
@@ -1003,6 +1020,70 @@ private fun AddPanel(state: EditorState, onIcon: () -> Unit) {
                     Spacer(Modifier.height(6.dp))
                     Text(t.label().t(), style = Type.small, color = c.text, maxLines = 1)
                 }
+            }
+            repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+        }
+    }
+    PanelLabel(tr("الأشكال", "Shapes"))
+    ShapeGrid(-1) { i -> state.add(ElType.SHAPE, lang, variant = i) }
+    PanelLabel(tr("إطارات وزخارف الصفحة", "Page frames & borders"))
+    FrameGrid(-1) { i -> state.add(ElType.FRAME, lang, variant = i) }
+    PanelLabel(tr("وسائل الدفع", "Payment marks"))
+    PaymentGrid(null) { k -> state.add(ElType.PAYMENT, lang, kind = k) }
+}
+
+private val GALLERY_TYPES = setOf(ElType.SHAPE, ElType.FRAME, ElType.PAYMENT)
+
+/** Thumbnails of every shape; [selected] is highlighted. */
+@Composable
+private fun ShapeGrid(selected: Int, onPick: (Int) -> Unit) {
+    val c = Eyn.c
+    Shapes.all.indices.chunked(6).forEach { row ->
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {
+            row.forEach { i ->
+                Box(
+                    Modifier.weight(1f).aspectRatio(1f).clip(RoundedCornerShape(12.dp)).background(c.surfaceAlt)
+                        .border(2.dp, if (i == selected) c.primary else Color.Transparent, RoundedCornerShape(12.dp))
+                        .bounceClick { onPick(i) }.padding(9.dp),
+                    contentAlignment = Alignment.Center,
+                ) { Box(Modifier.fillMaxSize().background(c.primary, Shapes.ShapeOf(i))) }
+            }
+            repeat(6 - row.size) { Spacer(Modifier.weight(1f)) }
+        }
+    }
+}
+
+@Composable
+private fun FrameGrid(selected: Int, onPick: (Int) -> Unit) {
+    val c = Eyn.c
+    Shapes.frames.indices.chunked(4).forEach { row ->
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {
+            row.forEach { i ->
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        Modifier.fillMaxWidth().aspectRatio(0.78f).clip(RoundedCornerShape(10.dp)).background(Color.White)
+                            .border(2.dp, if (i == selected) c.primary else c.outline, RoundedCornerShape(10.dp))
+                            .bounceClick { onPick(i) }.padding(6.dp),
+                    ) { Shapes.Frame(i, c.primary, 2f, 4f) }
+                    Text(Shapes.frames[i].t(), style = Type.small, color = c.muted, maxLines = 1, modifier = Modifier.padding(top = 3.dp))
+                }
+            }
+            repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+        }
+    }
+}
+
+@Composable
+private fun PaymentGrid(selected: String?, onPick: (String) -> Unit) {
+    val c = Eyn.c
+    Shapes.payments.chunked(4).forEach { row ->
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {
+            row.forEach { (k, _) ->
+                Box(
+                    Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(12.dp)).background(c.surfaceAlt)
+                        .border(2.dp, if (k == selected) c.primary else Color.Transparent, RoundedCornerShape(12.dp))
+                        .bounceClick { onPick(k) }.padding(6.dp),
+                ) { Shapes.PaymentMark(k, Modifier.fillMaxSize()) }
             }
             repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
         }
@@ -1041,6 +1122,17 @@ private fun StylePanel(state: EditorState, pickPhoto: (String) -> Unit, onRemove
         NumStepper(tr("العرض", "Width"), state.design.w, 60f, 2400f) { v -> state.canvas("cw") { it.copy(w = v) } }
         NumStepper(tr("الارتفاع", "Height"), state.design.h, 60f, 4000f) { v -> state.canvas("ch") { it.copy(h = v) } }
         return
+    }
+    when (e.type) {
+        ElType.SHAPE -> { PanelLabel(tr("الشكل", "Shape")); ShapeGrid(e.shape) { i -> state.updateEl(e.id) { it.copy(shape = i) } } }
+        ElType.FRAME -> { PanelLabel(tr("نمط الإطار", "Frame style")); FrameGrid(e.shape) { i -> state.updateEl(e.id) { it.copy(shape = i) } } }
+        ElType.PAYMENT -> {
+            PanelLabel(tr("وسيلة الدفع", "Payment method"))
+            PaymentGrid(e.icon) { k -> state.updateEl(e.id) { it.copy(icon = k) } }
+            NumStepper(tr("الشفافية", "Opacity"), e.opacity * 100, 5f, 100f, suffix = "%") { v -> state.updateEl(e.id, "op${e.id}") { it.copy(opacity = v / 100f) } }
+            return
+        }
+        else -> {}
     }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         ActionChip(tr("نسخ التنسيق", "Copy style"), Icons.Rounded.ContentCopy) { state.copyStyle() }
@@ -1096,7 +1188,7 @@ private fun StylePanel(state: EditorState, pickPhoto: (String) -> Unit, onRemove
             Segmented(listOf(tr("ملء وقص", "Fill & crop"), tr("احتواء كامل", "Fit whole")), e.fit, { i -> state.updateEl(e.id) { it.copy(fit = i) } }, Modifier.fillMaxWidth())
         }
     }
-    if (e.type != ElType.BOX && e.type != ElType.CARD && e.type != ElType.DIVIDER && e.type != ElType.TOGGLE) {
+    if (e.type != ElType.BOX && e.type != ElType.CARD && e.type != ElType.DIVIDER && e.type != ElType.TOGGLE && e.type != ElType.FRAME) {
         PanelLabel(
             when (e.type) {
                 ElType.ICON, ElType.RATING -> tr("لون الأيقونة", "Icon color")
@@ -1111,13 +1203,14 @@ private fun StylePanel(state: EditorState, pickPhoto: (String) -> Unit, onRemove
         SwatchRow(e.borderColor.c(), { col -> state.updateEl(e.id) { it.copy(borderColor = col.argb()) } })
     }
     Spacer(Modifier.height(6.dp))
-    if (e.type !in ROUND && e.type != ElType.ICON && e.type != ElType.TOGGLE && e.type != ElType.RATING) {
+    if (e.type !in ROUND && e.type != ElType.ICON && e.type != ElType.TOGGLE && e.type != ElType.RATING && e.type != ElType.SHAPE) {
         NumStepper(tr("استدارة الزوايا", "Corner radius"), e.radius, 0f, 200f) { v -> state.updateEl(e.id, "r${e.id}") { it.copy(radius = v) } }
     }
     if (e.type !in VALUE_TYPES && e.type != ElType.ICON) {
-        NumStepper(tr("سماكة الإطار", "Border width"), e.borderW, 0f, 20f) { v -> state.updateEl(e.id, "bw${e.id}") { it.copy(borderW = v) } }
+        val frame = e.type == ElType.FRAME
+        NumStepper(if (frame) tr("سماكة الزخرفة", "Line width") else tr("سماكة الإطار", "Border width"), e.borderW, 0f, 20f) { v -> state.updateEl(e.id, "bw${e.id}") { it.copy(borderW = v) } }
         if (e.borderW > 0f) {
-            PanelLabel(tr("لون الإطار", "Border color"))
+            PanelLabel(if (frame) tr("لون الزخرفة", "Frame color") else tr("لون الإطار", "Border color"))
             SwatchRow(e.borderColor.c(), { col -> state.updateEl(e.id) { it.copy(borderColor = col.argb()) } })
         }
         NumStepper(tr("الظل", "Shadow"), e.shadow, 0f, 40f) { v -> state.updateEl(e.id, "sh${e.id}") { it.copy(shadow = v) } }

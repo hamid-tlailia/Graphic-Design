@@ -183,8 +183,12 @@ object CodeGen {
                 }),
             ))
             BlockKind.CARDS -> boxL({ ph = pad; pv = pad * 0.5f; wPct = 100f; bg = bgc }, listOf(
-                if (b.title.isNotBlank()) tx(b.title, 16f, bold = true, c = center, fill = true) else null,
-                if (b.title.isNotBlank()) spacer(10f) else null,
+                if (b.variant == CV.SECTION) box({ row = true; this.items = "center"; wPct = 100f },
+                    box({ flex = 1f }, tx(b.title, 18f, bold = true), if (b.subtitle.isNotBlank()) tx(b.subtitle, 12f, muted) else null),
+                    if (b.button.isNotBlank()) tx(b.button, 13f, primary, bold = true) else null,
+                ) else null,
+                if (b.title.isNotBlank() && b.variant !in ownTitle) tx(b.title, 16f, bold = true, c = center, fill = true) else null,
+                if (b.title.isNotBlank() && b.variant !in ownTitle) spacer(10f) else null,
                 when (b.variant) {
                     0 -> boxL({ gap = 12f; wPct = 100f }, its.chunked(2).map { pair ->
                         boxL({ row = true; gap = 12f; wPct = 100f }, pair.map { item ->
@@ -264,8 +268,12 @@ object CodeGen {
                 ))
             }
             BlockKind.CUSTOM -> boxL({ ph = pad; pv = pad * 0.5f; wPct = 100f; bg = bgc; this.items = if (center) "center" else "start" }, listOf(
-                if (b.title.isNotBlank()) tx(b.title, 16f, bold = true, c = center, fill = true) else null,
-                if (b.title.isNotBlank()) spacer(10f) else null,
+                if (b.variant == CV.SECTION) box({ row = true; this.items = "center"; wPct = 100f },
+                    box({ flex = 1f }, tx(b.title, 18f, bold = true), if (b.subtitle.isNotBlank()) tx(b.subtitle, 12f, muted) else null),
+                    if (b.button.isNotBlank()) tx(b.button, 13f, primary, bold = true) else null,
+                ) else null,
+                if (b.title.isNotBlank() && b.variant !in ownTitle) tx(b.title, 16f, bold = true, c = center, fill = true) else null,
+                if (b.title.isNotBlank() && b.variant !in ownTitle) spacer(10f) else null,
                 when (b.variant) {
                     0 -> boxL({ row = true; wPct = 100f }, its.map { item ->
                         val s = if (b.itemHeight > 0) b.itemHeight else 52f
@@ -282,7 +290,7 @@ object CodeGen {
                             if (i < its.lastIndex) box({ h = 1f; wPct = 100f; bg = ink(0.06f) }) else null,
                         )
                     })
-                    else -> boxL({ gap = 10f; wPct = 100f }, its.chunked(2).map { pair ->
+                    CV.CARD_GRID -> boxL({ gap = 10f; wPct = 100f }, its.chunked(2).map { pair ->
                         boxL({ row = true; gap = 10f; wPct = 100f }, pair.map { item ->
                             box({ flex = 1f; this.r = rad; bg = card; ph = 12f; pv = 12f; this.items = if (center) "center" else "start" },
                                 if (item.image.isNotEmpty()) placeholder({ wPct = 100f; h = if (b.itemHeight > 0) b.itemHeight else 84f; this.r = rad * 0.6f }, item.image)
@@ -291,12 +299,157 @@ object CodeGen {
                                 if (item.value.isNotBlank()) tx(price(item.value, b), 12f, accent, c = center) else null)
                         } + if (pair.size == 1) listOf(flexSpacer()) else emptyList())
                     })
+                    else -> customExtra(b, its, rad, center)
                 },
             ))
         }
         // Width %, alignment and minimum height wrap every block, like BlockView.
         return box({ wPct = 100f; this.items = if (center) "center" else "start" },
             box({ wPct = b.widthPct.coerceIn(0.2f, 1f) * 100f; minH = b.minHeight.takeIf { it > 0 } }, content))
+    }
+
+    private val ownTitle = setOf(CV.SECTION, CV.DIVIDER, CV.BANNER, CV.PRODUCT, CV.PROFILE, CV.ALERT, CV.ADD_BAR)
+
+    /** Payment brand mark as plain boxes and text. */
+    private fun T.pay(kind: String, height: Float): N {
+        val (label, color, back) = Shapes.paymentStyle(kind)
+        val dot = height * 0.56f
+        val content: N = Shapes.paymentIcon(kind)?.let { icon(it, if (kind == "cash") "#2E9E6A" else color, height * 0.55f) }
+            ?: if (kind == "mastercard") {
+                // Rows run right-to-left in Arabic; keep red on the left like the real mark.
+                val circles = listOf(box({ w = dot; h = dot; circle = true; bg = "#EB001B" }), box({ w = dot; h = dot; circle = true; bg = "rgba(247,158,27,0.85)" }))
+                boxL({ row = true }, if (rtl) circles.reversed() else circles)
+            } else N('t', S().apply { fs = height * (if (label.length > 6) 0.3f else 0.4f); this.color = color; bold = true; lines = 1 }, text = label)
+        return box({ w = height * 1.6f; h = height; r = 6f; bg = back; bw = 1f; bc = "rgba(0,0,0,0.10)"; items = "center"; justify = "center" }, content)
+    }
+
+    private fun T.stepper(qty: Int, size: Float = 28f) = box({ row = true; items = "center"; gap = 4f },
+        box({ w = size; h = size; circle = true; bw = 1f; bc = ink(0.15f); items = "center"; justify = "center" }, icon("remove", ink, size * 0.55f)),
+        box({ w = size + 4f; items = "center" }, text(qty.toString(), 14f, bold = true, center = true)),
+        box({ w = size; h = size; circle = true; bg = primary; items = "center"; justify = "center" }, icon("add", onPrimary, size * 0.55f)))
+
+    private fun T.stars(rating: Float, size: Float = 14f) = boxL({ row = true }, (0 until 5).map { i -> icon(if (i < rating.roundToInt()) "star" else "star_border", "#FFB400", size) })
+
+    private fun T.button(label: String, height: Float, radius: Float, flex: Boolean = true) =
+        box({ if (flex) this.flex = 1f; h = height; r = radius; bg = primary; items = "center"; justify = "center"; ph = 16f }, text(label, 15f, onPrimary, bold = true))
+
+    /** Custom variants from [CV.CART] on, mirroring CustomBlocks.kt. */
+    private fun T.customExtra(b: Block, its: List<BlockItem>, rad: Float, center: Boolean): N {
+        val ih = b.itemHeight
+        fun pr(v: String) = price(v, b)
+        val line = { box({ h = 1f; wPct = 100f; bg = ink(0.06f) }) }
+        return when (b.variant) {
+            CV.CART -> boxL({ gap = 10f; wPct = 100f }, its.map { item ->
+                box({ row = true; items = "center"; wPct = 100f; r = rad; bg = card; ph = 10f; pv = 10f; gap = 12f },
+                    if (b.shows(CV.OPT_IMAGE)) placeholder({ w = if (ih > 0) ih else 64f; h = if (ih > 0) ih else 64f; r = rad * 0.6f }, item.image) else null,
+                    box({ flex = 1f; gap = 4f }, text(item.label, 14f, bold = true, lines = 1), text(pr(item.value), 13f, accent, bold = true)),
+                    box({ items = "end"; gap = 8f },
+                        if (b.shows(CV.OPT_DELETE)) icon("delete", muted, 20f) else null,
+                        if (b.shows(CV.OPT_STEPPER)) stepper(item.qty) else text("×${item.qty}", 13f, muted)))
+            })
+            CV.SUMMARY -> boxL({ wPct = 100f; r = rad; bg = card; ph = 14f; pv = 14f }, its.map { item ->
+                box({ row = true; wPct = 100f; pv = 5f }, box({ flex = 1f }, text(item.label, 14f, muted)),
+                    text(pr(item.value), 14f, if (item.value.trim().startsWith("-")) "#2E9E6A" else ink))
+            } + (if (b.shows(CV.OPT_TOTAL)) listOf(spacer(6f), line(), spacer(8f),
+                box({ row = true; wPct = 100f }, box({ flex = 1f }, text(if (rtl) "الإجمالي" else "Total", 16f, bold = true)), text(pr(CV.total(its)), 16f, primary, bold = true)))
+            else emptyList()) + (if (b.button.isNotBlank()) listOf(spacer(14f), box({ row = true; wPct = 100f }, button(b.button, 48f, rad * 0.8f))) else emptyList()))
+            CV.PAY_METHODS -> boxL({ gap = 8f; wPct = 100f }, its.mapIndexed { i, item ->
+                val on = i == b.active
+                box({ row = true; items = "center"; wPct = 100f; minH = if (ih > 0) ih else 56f; r = rad; bg = card; bw = if (on) 2f else 1f; bc = if (on) primary else ink(0.08f); ph = 12f; gap = 12f },
+                    pay(item.icon, 32f), box({ flex = 1f }, text(item.label, 14f, lines = 1)),
+                    box({ w = 22f; h = 22f; circle = true; bw = 2f; bc = if (on) primary else ink(0.25f); items = "center"; justify = "center" },
+                        if (on) box({ w = 11f; h = 11f; circle = true; bg = primary }) else null))
+            })
+            CV.PAY_LOGOS -> boxL({ row = true; gap = 8f; wPct = 100f; justify = if (center) "center" else "start" }, its.map { pay(it.icon, if (ih > 0) ih else 30f) })
+            CV.SECTION -> spacer()
+            CV.PROMO -> box({ row = true; gap = 8f; wPct = 100f },
+                box({ flex = 1f; row = true; items = "center"; h = if (ih > 0) ih else 48f; r = rad; bg = "#FFFFFF"; bw = 1f; bc = ink(0.12f); ph = 12f; gap = 8f },
+                    icon("local_offer", muted, 18f), text(b.subtitle, 13f, muted, lines = 1)),
+                button(b.button, if (ih > 0) ih else 48f, rad, flex = false))
+            CV.STEPS -> boxL({ row = true; wPct = 100f }, its.mapIndexed { i, item ->
+                val done = i < b.active; val now = i == b.active
+                box({ flex = 1f; items = "center" },
+                    box({ row = true; items = "center"; wPct = 100f },
+                        box({ flex = 1f; h = 2f; bg = if (i == 0) null else if (i <= b.active) primary else ink(0.12f) }),
+                        box({ w = 30f; h = 30f; circle = true; bg = if (done || now) primary else surface; items = "center"; justify = "center" },
+                            if (done) icon("check", onPrimary, 16f) else text("${i + 1}", 13f, if (now) onPrimary else muted, bold = true)),
+                        box({ flex = 1f; h = 2f; bg = if (i == its.lastIndex) null else if (i < b.active) primary else ink(0.12f) })),
+                    if (b.shows(CV.OPT_LABELS)) spacer(6f) else null,
+                    if (b.shows(CV.OPT_LABELS)) text(item.label, 11f, if (now) primary else muted, bold = now, center = true, lines = 1) else null)
+            })
+            CV.TOGGLES -> boxL({ wPct = 100f; r = rad; bg = card; clip = true }, its.flatMapIndexed { i, item ->
+                listOfNotNull(
+                    box({ row = true; items = "center"; wPct = 100f; minH = if (ih > 0) ih else 56f; ph = 14f; gap = 12f },
+                        if (item.icon.isNotEmpty()) icon(item.icon, primary, 22f) else null, box({ flex = 1f }, text(item.label, 14f)),
+                        box({ row = true; w = 44f; h = 26f; circle = true; bg = if (item.on) primary else ink(0.15f); ph = 3f; items = "center"; justify = if (item.on) "end" else "start" },
+                            box({ w = 20f; h = 20f; circle = true; bg = "#FFFFFF" }))),
+                    if (i < its.lastIndex) line() else null,
+                )
+            })
+            CV.REVIEWS -> boxL({ gap = 10f; wPct = 100f }, its.map { item ->
+                box({ wPct = 100f; r = rad; bg = card; ph = 14f; pv = 14f; gap = 8f },
+                    box({ row = true; items = "center"; gap = 10f },
+                        if (b.shows(CV.OPT_IMAGE)) (if (item.image.isNotEmpty()) placeholder({ w = 40f; h = 40f; circle = true }, item.image)
+                        else box({ w = 40f; h = 40f; circle = true; bg = surface; items = "center"; justify = "center" }, text(item.label.take(1), 16f, primary, bold = true))) else null,
+                        box({ flex = 1f }, text(item.label, 14f, bold = true, lines = 1), if (b.shows(CV.OPT_RATING)) stars(item.value.toFloatOrNull() ?: 5f) else null)),
+                    if (item.note.isNotBlank()) text(item.note, 13f, muted) else null)
+            })
+            CV.DIVIDER -> box({ row = true; items = "center"; wPct = 100f; pv = 6f; gap = 12f },
+                box({ flex = 1f; h = 1f; bg = ink(0.12f) }), if (b.title.isNotBlank()) text(b.title, 13f, muted) else null, box({ flex = 1f; h = 1f; bg = ink(0.12f) }))
+            CV.BANNER -> {
+                val photo = b.image.takeIf { it.isNotEmpty() }?.let { image(it) }
+                box({ wPct = 100f; h = if (ih > 0) ih else 150f; r = rad; bg = surface; clip = true; justify = "end"; this.photo = photo; overlay = photo != null; items = if (photo == null) "center" else "start" },
+                    if (photo == null && b.title.isBlank()) icon("image", rgba(pal.primary, 0.35f), 34f) else null,
+                    if (b.title.isNotBlank()) box({ wPct = 100f; ph = 14f; pv = 14f; bg = if (photo == null) "rgba(0,0,0,0.45)" else null }, text(b.title, 18f, "#FFFFFF", bold = true, center = center, fill = true)) else null)
+            }
+            CV.PRODUCT -> box({ wPct = 100f },
+                placeholder({ wPct = 100f; h = if (ih > 0) ih else 220f; r = rad }, b.image), spacer(14f),
+                box({ row = true; items = "center"; wPct = 100f; gap = 8f }, box({ flex = 1f }, text(b.title, 20f, bold = true)),
+                    if (b.shows(CV.OPT_FAV)) icon("favorite_border", accent, 22f) else null, text(pr(b.price), 18f, accent, bold = true)),
+                if (b.shows(CV.OPT_RATING)) box({ row = true; items = "center"; gap = 6f; pt = 4f }, stars(4.6f), text("4.6", 12f, muted)) else null,
+                if (b.body.isNotBlank()) spacer(10f) else null, if (b.body.isNotBlank()) text(b.body, 13f, muted) else null,
+                spacer(16f),
+                box({ row = true; items = "center"; wPct = 100f; gap = 14f },
+                    if (b.shows(CV.OPT_STEPPER)) stepper(1, 34f) else null,
+                    if (b.button.isNotBlank()) button(b.button, 50f, rad * 0.7f) else null))
+            CV.STATS -> boxL({ row = true; gap = 10f; wPct = 100f }, its.map { item ->
+                box({ flex = 1f; r = rad; bg = card; pv = 14f; items = "center" }, text(item.value, 20f, primary, bold = true), text(item.label, 12f, muted, center = true, lines = 2))
+            })
+            CV.PROFILE -> {
+                val s = if (ih > 0) ih else 60f
+                box({ row = true; items = "center"; wPct = 100f; r = rad; bg = card; ph = 14f; pv = 14f; gap = 12f },
+                    if (b.image.isNotEmpty()) placeholder({ w = s; h = s; circle = true }, b.image) else circleIcon(s, surface, "person", primary, 30f),
+                    box({ flex = 1f }, text(b.title, 16f, bold = true, lines = 1), if (b.subtitle.isNotBlank()) text(b.subtitle, 12f, muted, lines = 1) else null),
+                    if (b.button.isNotBlank()) box({ circle = true; bg = surface; ph = 12f; pv = 7f }, text(b.button, 12f, primary, bold = true)) else null)
+            }
+            CV.ALERT -> box({ row = true; wPct = 100f; r = rad; bg = rgba(pal.primary, 0.10f); bw = 1f; bc = rgba(pal.primary, 0.25f); ph = 12f; pv = 12f; gap = 10f },
+                icon(b.icon.ifBlank { "info" }, primary, 24f),
+                box({ flex = 1f }, text(b.title, 14f, bold = true), if (b.body.isNotBlank()) text(b.body, 12f, muted) else null),
+                if (b.shows(CV.OPT_CLOSE)) icon("close", muted, 18f) else null)
+            CV.ICON_GRID -> boxL({ gap = 12f; wPct = 100f }, its.chunked(4).map { group ->
+                boxL({ row = true; wPct = 100f }, group.map { item ->
+                    val s = if (ih > 0) ih else 56f
+                    box({ flex = 1f; items = "center"; gap = 6f },
+                        box({ w = s; h = s; r = rad; bg = surface; items = "center"; justify = "center" }, icon(item.icon.ifEmpty { "circle" }, primary, s * 0.46f)),
+                        text(item.label, 12f, center = true, lines = 1))
+                } + List(4 - group.size) { flexSpacer() })
+            })
+            CV.ADD_BAR -> box({ row = true; items = "center"; wPct = 100f; gap = 14f },
+                if (b.shows(CV.OPT_STEPPER)) stepper(1, 36f) else null,
+                box({ flex = 1f; row = true; items = "center"; h = if (ih > 0) ih else 52f; r = rad; bg = primary; ph = 16f },
+                    box({ flex = 1f }, text(b.button, 15f, onPrimary, bold = true)), if (b.price.isNotBlank()) text(pr(b.price), 15f, onPrimary, bold = true) else null))
+            CV.CHECKS -> boxL({ wPct = 100f; r = rad; bg = card; clip = true }, its.flatMapIndexed { i, item ->
+                listOfNotNull(
+                    box({ row = true; items = "center"; wPct = 100f; minH = 52f; ph = 14f; gap = 12f },
+                        box({ w = 22f; h = 22f; r = 6f; bg = if (item.on) primary else null; bw = 2f; bc = if (item.on) primary else ink(0.25f); items = "center"; justify = "center" },
+                            if (item.on) icon("check", onPrimary, 16f) else null),
+                        box({ flex = 1f }, text(item.label, 14f)),
+                        if (item.value.isNotBlank()) text("+" + pr(item.value.trimStart('+')), 13f, muted) else null),
+                    if (i < its.lastIndex) line() else null,
+                )
+            })
+            else -> spacer()
+        }
     }
 
     private fun String.withAlpha(a: Float): String = if (this == "#FFFFFF") "rgba(255,255,255,$a)" else if (startsWith("#")) {
@@ -388,10 +541,12 @@ object CodeGen {
     fun html(p: AppProject, lang: Lang, image: (String) -> String? = { null }): String {
         val t = T(p, lang, image)
         val fonts = listOf(t.font, t.logoFont).distinct().joinToString("&") { fontLink(it) }
+        // All phones share one height (the tallest page), like the presentation board.
+        val screenH = boardScreenHeight(p) + 2
         val screens = p.pages.mapIndexed { i, page ->
             val (top, bottom) = t.page(page, p)
             """    <figure class="phone">
-      <main class="screen" style="height:${(page.height + 36).roundToInt()}px">
+      <main class="screen" style="height:${screenH}px">
         <div class="scroll">
 ${html(top, t, "          ")}
         </div>

@@ -59,6 +59,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -714,7 +715,8 @@ private fun BlockEditSheet(b: Block, p: AppProject, onChange: (Block) -> Unit, o
             }
         }
     }
-    var iconFor by remember { mutableStateOf<Int?>(null) }
+    var iconFor by remember { mutableStateOf<Int?>(null) } // item index, or BLOCK_ICON for the block's own icon
+    var payFor by remember { mutableStateOf<Int?>(null) }
     // statusBarsPadding keeps the sheet (and its handle) below the phone's status bar.
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = c.surface, modifier = Modifier.statusBarsPadding()) {
         // Title and live preview stay pinned while the controls below scroll.
@@ -739,11 +741,32 @@ private fun BlockEditSheet(b: Block, p: AppProject, onChange: (Block) -> Unit, o
             fields.forEach { (label, which) ->
                 Label(label)
                 OutlinedTextField(
-                    value = when (which) { 0 -> b.title; 1 -> b.subtitle; else -> b.button },
-                    onValueChange = { v -> onChange(when (which) { 0 -> b.copy(title = v); 1 -> b.copy(subtitle = v); else -> b.copy(button = v) }) },
+                    value = when (which) { 0 -> b.title; 1 -> b.subtitle; 2 -> b.button; 3 -> b.body; else -> b.price },
+                    onValueChange = { v ->
+                        onChange(when (which) { 0 -> b.copy(title = v); 1 -> b.copy(subtitle = v); 2 -> b.copy(button = v); 3 -> b.copy(body = v); else -> b.copy(price = v.take(12)) })
+                    },
                     shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth(),
-                    singleLine = !(b.kind == BlockKind.TEXT && which == 1),
+                    singleLine = !((b.kind == BlockKind.TEXT && which == 1) || which == 3),
+                    placeholder = if (which == 2 && b.kind == BlockKind.CUSTOM) ({ Text(tr("اتركه فارغاً لإخفائه", "Leave empty to hide")) }) else null,
                 )
+            }
+            if (b.kind == BlockKind.CUSTOM && CV.blockIcon(b.variant)) {
+                Label(tr("الأيقونة", "Icon"))
+                Box(
+                    Modifier.size(52.dp).clip(RoundedCornerShape(14.dp)).background(c.lilac).clickable { iconFor = BLOCK_ICON },
+                    contentAlignment = Alignment.Center,
+                ) { FontIcon(b.icon.ifEmpty { "info" }, c.onLilac, 24f, style = p.iconStyle) }
+            }
+            val options = if (b.kind == BlockKind.CUSTOM) CV.options(b.variant) else emptyList()
+            if (options.isNotEmpty()) {
+                Label(tr("إظهار", "Show"))
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    options.forEach { (key, name) ->
+                        OptionChip((if (b.shows(key)) "✓ " else "") + name.t(), b.shows(key)) {
+                            onChange(b.copy(hidden = if (b.shows(key)) b.hidden + key else b.hidden - key))
+                        }
+                    }
+                }
             }
 
             if (b.hasItems()) {
@@ -777,6 +800,13 @@ private fun BlockEditSheet(b: Block, p: AppProject, onChange: (Block) -> Unit, o
                             ) { if (on) Box(Modifier.size(12.dp).clip(CircleShape).background(c.primary)) }
                             Spacer(Modifier.width(8.dp))
                         }
+                        if (b.itemsArePayments()) {
+                            Box(
+                                Modifier.size(64.dp, 48.dp).clip(RoundedCornerShape(12.dp)).background(c.surface).clickable { payFor = i }.padding(6.dp),
+                                contentAlignment = Alignment.Center,
+                            ) { Shapes.PaymentMark(item.icon, Modifier.fillMaxSize()) }
+                            Spacer(Modifier.width(8.dp))
+                        }
                         if (b.itemsHaveIcons()) {
                             Box(
                                 Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(c.lilac).clickable { iconFor = i },
@@ -800,7 +830,11 @@ private fun BlockEditSheet(b: Block, p: AppProject, onChange: (Block) -> Unit, o
                             item.label, { v -> setItems(items.toMutableList().also { it[i] = item.copy(label = v.take(30)) }) },
                             singleLine = true, shape = RoundedCornerShape(12.dp), modifier = Modifier.weight(1f),
                             placeholder = { Text(tr("النص", "Text")) },
-                        ) else Text(item.icon, style = Type.small, color = c.muted, modifier = Modifier.weight(1f))
+                        ) else Text(if (b.itemsArePayments()) Shapes.paymentName(item.icon).t() else item.icon, style = Type.small, color = c.muted, modifier = Modifier.weight(1f))
+                        if (b.kind == BlockKind.CUSTOM && CV.on(b.variant)) Switch(
+                            item.on, { v -> setItems(items.toMutableList().also { it[i] = item.copy(on = v) }) },
+                            modifier = Modifier.padding(horizontal = 4.dp),
+                        )
                         if (items.size > 1 || !b.itemsHaveLabels()) Box(Modifier.size(40.dp).clip(CircleShape).clickable {
                             setItems(items.toMutableList().also { it.removeAt(i) }, if (b.active >= i && b.active > 0) b.active - 1 else b.active)
                         }, contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Delete, null, tint = c.danger, modifier = Modifier.size(20.dp)) }
@@ -810,8 +844,29 @@ private fun BlockEditSheet(b: Block, p: AppProject, onChange: (Block) -> Unit, o
                         OutlinedTextField(
                             item.value, { v -> setItems(items.toMutableList().also { it[i] = item.copy(value = v.take(20)) }) },
                             singleLine = true, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text(if (b.kind == BlockKind.LIST) tr("قيمة اختيارية (مثل السعر)", "Optional value (e.g. price)") else tr("السعر", "Price")) },
+                            placeholder = {
+                                Text(
+                                    when (b.kind) {
+                                        BlockKind.LIST -> tr("قيمة اختيارية (مثل السعر)", "Optional value (e.g. price)")
+                                        BlockKind.CUSTOM -> CV.valueHint(b.variant).t()
+                                        else -> tr("السعر", "Price")
+                                    },
+                                )
+                            },
                         )
+                    }
+                    if (b.kind == BlockKind.CUSTOM && CV.note(b.variant)) {
+                        Spacer(Modifier.height(6.dp))
+                        OutlinedTextField(
+                            item.note, { v -> setItems(items.toMutableList().also { it[i] = item.copy(note = v.take(200)) }) },
+                            shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth(), maxLines = 3,
+                            placeholder = { Text(tr("نص التعليق", "Review text")) },
+                        )
+                    }
+                    if (b.kind == BlockKind.CUSTOM && CV.qty(b.variant)) {
+                        NumStepper(tr("الكمية", "Quantity"), item.qty.toFloat(), 1f, 99f) { v ->
+                            setItems(items.toMutableList().also { it[i] = item.copy(qty = v.roundToInt()) })
+                        }
                     }
                     }
                 }
@@ -824,11 +879,12 @@ private fun BlockEditSheet(b: Block, p: AppProject, onChange: (Block) -> Unit, o
                     }, false,
                 ) {
                     val label = if (b.itemsHaveLabels()) tr0(lang, "عنصر جديد", "New item") else ""
-                    setItems(items + BlockItem(label, if (b.itemsHaveIcons()) "star" else "", value = if (b.itemsHaveValue() && b.kind != BlockKind.LIST) "10" else ""))
+                    val icon = when { b.itemsArePayments() -> "card"; b.itemsHaveIcons() -> "star"; else -> "" }
+                    setItems(items + BlockItem(label, icon, value = if (b.itemsHaveValue() && b.kind != BlockKind.LIST) "10" else ""))
                 }
             }
 
-            if (b.kind == BlockKind.HERO || b.kind == BlockKind.CARDS) {
+            if (b.kind == BlockKind.HERO || b.kind == BlockKind.CARDS || (b.kind == BlockKind.CUSTOM && CV.blockImage(b.variant))) {
                 Label(tr("صورة", "Photo"))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OptionChip(if (b.image.isEmpty()) tr("اختر صورة من الجوال", "Pick a photo") else tr("تغيير الصورة", "Change photo"), false) {
@@ -870,9 +926,57 @@ private fun BlockEditSheet(b: Block, p: AppProject, onChange: (Block) -> Unit, o
     }
     iconFor?.let { i ->
         val items = b.itemsOr(lang)
-        IconPickerSheet(items.getOrNull(i)?.icon.orEmpty(), onDismiss = { iconFor = null }, style = p.iconStyle) { name ->
-            onChange(b.copy(items = items.toMutableList().also { if (i < it.size) it[i] = it[i].copy(icon = name) }))
+        val current = if (i == BLOCK_ICON) b.icon else items.getOrNull(i)?.icon.orEmpty()
+        IconPickerSheet(current, onDismiss = { iconFor = null }, style = p.iconStyle) { name ->
+            onChange(if (i == BLOCK_ICON) b.copy(icon = name) else b.copy(items = items.toMutableList().also { if (i < it.size) it[i] = it[i].copy(icon = name) }))
             iconFor = null
+        }
+    }
+    payFor?.let { i ->
+        PaymentPickerSheet(onDismiss = { payFor = null }) { kind ->
+            val items = b.itemsOr(lang)
+            onChange(
+                b.copy(
+                    items = items.toMutableList().also {
+                        if (i < it.size) {
+                            val old = it[i]
+                            // Rename the row too when it still carries the previous method's name.
+                            val rename = old.label.isBlank() || Shapes.payments.any { (k, n) -> old.label == n.get(lang) || k == old.icon && old.label.startsWith(n.get(lang)) }
+                            it[i] = old.copy(icon = kind, label = if (rename && b.itemsHaveLabels()) Shapes.paymentName(kind).get(lang) else old.label)
+                        }
+                    },
+                ),
+            )
+            payFor = null
+        }
+    }
+}
+
+private const val BLOCK_ICON = -1
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PaymentPickerSheet(onDismiss: () -> Unit, onPick: (String) -> Unit) {
+    val c = Eyn.c
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = c.surface, modifier = Modifier.statusBarsPadding()) {
+        Column(Modifier.padding(horizontal = 20.dp).navigationBarsPadding().padding(bottom = 16.dp)) {
+            Text(tr("اختر وسيلة الدفع", "Pick a payment method"), style = Type.h2, color = c.text)
+            Spacer(Modifier.height(12.dp))
+            Shapes.payments.chunked(3).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(bottom = 10.dp)) {
+                    row.forEach { (k, name) ->
+                        Column(
+                            Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(c.surfaceAlt).clickable { onPick(k) }.padding(10.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Shapes.PaymentMark(k, Modifier.size(70.dp, 42.dp))
+                            Spacer(Modifier.height(6.dp))
+                            Text(name.t(), style = Type.small, color = c.text, maxLines = 1)
+                        }
+                    }
+                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                }
+            }
         }
     }
 }
@@ -887,12 +991,28 @@ private fun itemHeightLabel(b: Block): String? = when (b.kind) {
     BlockKind.HERO -> tr("ارتفاع البطاقة", "Card height")
     BlockKind.CATEGORIES -> if (b.variant == 0) tr("حجم الدائرة", "Circle size") else null
     BlockKind.LIST -> tr("ارتفاع الصف", "Row height")
+    BlockKind.CUSTOM -> when (b.variant) {
+        CV.ICON_ROW, CV.ICON_GRID -> tr("حجم الأيقونة", "Icon size")
+        CV.CARD_GRID -> tr("ارتفاع صورة البطاقة", "Card image height")
+        CV.ITEM_LIST, CV.TOGGLES, CV.PAY_METHODS -> tr("ارتفاع الصف", "Row height")
+        CV.CART -> tr("حجم صورة المنتج", "Product photo size")
+        CV.PAY_LOGOS -> tr("ارتفاع الشعارات", "Logo height")
+        CV.PROMO, CV.ADD_BAR -> tr("ارتفاع الحقل والزر", "Field & button height")
+        CV.BANNER, CV.PRODUCT -> tr("ارتفاع الصورة", "Image height")
+        CV.PROFILE -> tr("حجم الصورة الشخصية", "Avatar size")
+        else -> null
+    }
     else -> null
 }
 
 private fun defaultItemHeight(b: Block) = when (b.kind) {
     BlockKind.BUTTON -> 50f; BlockKind.FORM -> 48f; BlockKind.SEARCH -> 48f; BlockKind.CARDS -> 120f
-    BlockKind.HERO -> 160f; BlockKind.CATEGORIES -> 54f; BlockKind.LIST -> 56f; else -> 48f
+    BlockKind.HERO -> 160f; BlockKind.CATEGORIES -> 54f; BlockKind.LIST -> 56f
+    BlockKind.CUSTOM -> when (b.variant) {
+        CV.ICON_ROW -> 52f; CV.ICON_GRID -> 56f; CV.CARD_GRID -> 84f; CV.CART -> 64f; CV.PAY_LOGOS -> 30f; CV.ADD_BAR -> 52f
+        CV.BANNER -> 150f; CV.PRODUCT -> 220f; CV.PROFILE -> 60f; else -> 56f
+    }
+    else -> 48f
 }
 
 /** Which text fields a block exposes: 0 title, 1 subtitle, 2 button. */
@@ -907,5 +1027,21 @@ private fun fieldsFor(b: Block): List<Pair<String, Int>> = when (b.kind) {
     BlockKind.FORM -> listOf(tr("العنوان", "Title") to 0, tr("نص الزر", "Button text") to 2)
     BlockKind.BUTTON -> listOfNotNull(tr("نص الزر", "Button text") to 2, if (b.variant == 1) tr("الزر الثانوي", "Secondary button") to 1 else null)
     BlockKind.FOOTER -> if (b.variant == 1) listOf(tr("العنوان", "Title") to 0, tr("حقوق النشر", "Copyright") to 1) else emptyList()
-    BlockKind.CUSTOM -> listOf(tr("العنوان", "Title") to 0, tr("العملة (تُضاف بعد الأسعار)", "Currency (after prices)") to 1)
+    BlockKind.CUSTOM -> {
+        val title = tr("العنوان", "Title") to 0
+        val currency = tr("العملة (تُضاف بعد الأسعار)", "Currency (after prices)") to 1
+        when (b.variant) {
+            CV.SUMMARY -> listOf(title, currency, tr("نص الزر", "Button text") to 2)
+            CV.PAY_METHODS, CV.PAY_LOGOS, CV.STEPS, CV.TOGGLES, CV.REVIEWS, CV.STATS, CV.ICON_GRID -> listOf(title)
+            CV.SECTION -> listOf(title, tr("سطر ثانوي", "Subtitle") to 1, tr("نص الرابط", "Link text") to 2)
+            CV.PROMO -> listOf(title, tr("نص الحقل", "Field placeholder") to 1, tr("نص الزر", "Button text") to 2)
+            CV.DIVIDER -> listOf(tr("نص في الوسط", "Middle text") to 0)
+            CV.BANNER -> listOf(tr("نص على الصورة", "Text on image") to 0)
+            CV.PRODUCT -> listOf(tr("اسم المنتج", "Product name") to 0, tr("السعر", "Price") to 4, currency, tr("الوصف", "Description") to 3, tr("نص الزر", "Button text") to 2)
+            CV.PROFILE -> listOf(tr("الاسم", "Name") to 0, tr("البريد أو الوصف", "Email or detail") to 1, tr("نص الزر", "Button text") to 2)
+            CV.ALERT -> listOf(title, tr("التفاصيل", "Details") to 3)
+            CV.ADD_BAR -> listOf(tr("نص الزر", "Button text") to 2, tr("السعر", "Price") to 4, currency)
+            else -> listOf(title, currency)
+        }
+    }
 }

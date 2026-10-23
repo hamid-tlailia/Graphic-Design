@@ -2,7 +2,11 @@ package com.eyn.designtrainer
 
 import android.app.Application
 import android.graphics.Bitmap
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.activity.ComponentActivity
@@ -186,6 +190,78 @@ class ScreenshotTest {
             File(dir, "App_$tag.js").writeText(com.eyn.designtrainer.builder.CodeGen.reactNative(p, lang))
         }
     }
+    /** A shop project using every new custom block. */
+    private fun shop(lang: Lang): AppProject {
+        val p = AppProject(id = "p2", name = if (lang == Lang.AR) "قهوتي" else "My Cafe")
+        fun c(v: Int) = com.eyn.designtrainer.builder.defaultBlock(com.eyn.designtrainer.data.BlockKind.CUSTOM, v, p, lang)
+        val header = com.eyn.designtrainer.builder.defaultBlock(com.eyn.designtrainer.data.BlockKind.HEADER, 1, p, lang)
+        val cv = com.eyn.designtrainer.builder.CV
+        return p.copy(pages = listOf(
+            Page(id = "s1", name = if (lang == Lang.AR) "السلة" else "Cart", height = 1100f, blocks = listOf(
+                header.copy(title = if (lang == Lang.AR) "السلة" else "Cart"), c(cv.STEPS), c(cv.CART), c(cv.PROMO), c(cv.SUMMARY), c(cv.PAY_METHODS), c(cv.PAY_LOGOS),
+            )),
+            Page(id = "s2", name = if (lang == Lang.AR) "المنتج" else "Product", height = 1000f, blocks = listOf(
+                c(cv.PRODUCT), c(cv.CHECKS), c(cv.SECTION), c(cv.REVIEWS), c(cv.ADD_BAR),
+            )),
+            Page(id = "s3", name = if (lang == Lang.AR) "عناصر" else "Extras", height = 1200f, blocks = listOf(
+                c(cv.PROFILE), c(cv.STATS), c(cv.ALERT), c(cv.BANNER), c(cv.ICON_GRID), c(cv.DIVIDER), c(cv.TOGGLES),
+            )),
+        ))
+    }
+
+    /** Renders [content] standalone (no navigation) and saves it. */
+    private fun still(name: String, lang: Lang = Lang.AR, content: @androidx.compose.runtime.Composable () -> Unit) {
+        rule.setContent { EynTheme(false, lang) { content() } }
+        rule.mainClock.autoAdvance = false
+        repeat(10) { rule.mainClock.advanceTimeBy(100) }
+        val view = rule.activity.window.decorView
+        val bmp = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+        view.draw(Canvas(bmp))
+        File(File("build/screens").apply { mkdirs() }, "$name.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
+    @Test fun s42_shop_pages() {
+        val p = shop(Lang.AR)
+        still("42_shop_pages") {
+            androidx.compose.foundation.layout.Row(
+                androidx.compose.ui.Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color(0xFFE9E7F2)),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
+            ) {
+                p.pages.forEach { page ->
+                    androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.width(128.dp).background(androidx.compose.ui.graphics.Color.White)) {
+                        com.eyn.designtrainer.builder.Scaled(128f / 360f) { com.eyn.designtrainer.builder.PageView(page, p) }
+                    }
+                }
+            }
+        }
+    }
+
+    @Test fun s43_canvas_shapes() {
+        val st = EditorState(blankDesign(Lang.AR).copy(id = "d3", w = 360f, h = 760f))
+        com.eyn.designtrainer.builder.Shapes.all.indices.forEach { i ->
+            st.add(ElType.SHAPE, Lang.AR, variant = i)
+            st.updateEl(st.selectedId!!) { it.copy(x = 24f + (i % 6) * 54f, y = 30f + (i / 6) * 54f, w = 46f, h = 46f) }
+        }
+        com.eyn.designtrainer.builder.Shapes.frames.indices.forEach { i ->
+            st.add(ElType.FRAME, Lang.AR, variant = i)
+            st.updateEl(st.selectedId!!) { it.copy(x = 20f + (i % 6) * 54f, y = 420f + (i / 6) * 70f, w = 48f, h = 62f, borderW = 2f) }
+        }
+        com.eyn.designtrainer.builder.Shapes.payments.forEachIndexed { i, (k, _) ->
+            st.add(ElType.PAYMENT, Lang.AR, kind = k)
+            st.updateEl(st.selectedId!!) { it.copy(x = 20f + (i % 6) * 54f, y = 640f + (i / 6) * 40f, w = 50f, h = 32f) }
+        }
+        st.add(ElType.SHAPE, Lang.AR, variant = 25)
+        st.updateEl(st.selectedId!!) { it.copy(x = 60f, y = 360f, w = 240f, h = 50f, text = "عنوان على شريط") }
+        still("43_canvas_shapes") { com.eyn.designtrainer.builder.DesignCanvas(st.design, 1.1f) }
+    }
+
+    @Test fun s45_shop_code() {
+        val dir = File("build/screens").apply { mkdirs() }
+        File(dir, "shop_ar.html").writeText(com.eyn.designtrainer.builder.CodeGen.html(shop(Lang.AR), Lang.AR))
+        File(dir, "shop_en.html").writeText(com.eyn.designtrainer.builder.CodeGen.html(shop(Lang.EN), Lang.EN))
+        File(dir, "Shop_ar.js").writeText(com.eyn.designtrainer.builder.CodeGen.reactNative(shop(Lang.AR), Lang.AR))
+    }
+
     @Test fun s39_custom_blocks() = shot("39_custom_blocks", Routes.build("p1")) { click("القائمة") }
     @Test fun s23_build_dark() = shot("23_build_dark", Routes.build("p1"), dark = true)
 }

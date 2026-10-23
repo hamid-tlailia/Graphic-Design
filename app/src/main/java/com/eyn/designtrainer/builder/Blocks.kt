@@ -175,7 +175,7 @@ val Variants: Map<BlockKind, List<L>> = mapOf(
     BlockKind.FORM to listOf(L("تسجيل دخول", "Sign in"), L("تواصل معنا", "Contact")),
     BlockKind.BUTTON to listOf(L("زر كامل العرض", "Full-width button"), L("زران", "Two buttons")),
     BlockKind.FOOTER to listOf(L("شريط تبويبات", "Tab bar"), L("فوتر نصي", "Text footer")),
-    BlockKind.CUSTOM to listOf(L("صف أيقونات ونصوص", "Icon row"), L("قائمة عناصر وأسعار", "Item list"), L("شبكة بطاقات", "Card grid")),
+    BlockKind.CUSTOM to CV.names,
 )
 
 /** A new block filled with sensible copy in the current language. */
@@ -214,10 +214,7 @@ fun defaultBlock(kind: BlockKind, variant: Int, p: AppProject, lang: Lang): Bloc
             kind = kind, variant = variant, button = s("اطلب الآن", "Order now"),
             subtitle = if (variant == 1) s("لاحقاً", "Later") else "", padding = 16f, radius = 14f,
         )
-        BlockKind.CUSTOM -> Block(
-            kind = kind, variant = variant, title = if (variant == 1) s("قائمة الأسعار", "Price list") else s("لماذا نحن؟", "Why us?"),
-            subtitle = s("ر.س", "$"), padding = 16f, radius = 16f,
-        )
+        BlockKind.CUSTOM -> CV.fresh(variant, lang)
         BlockKind.FOOTER -> Block(
             kind = kind, variant = variant, title = p.name,
             subtitle = s("© 2026 جميع الحقوق محفوظة", "© 2026 All rights reserved"), padding = if (variant == 0) 8f else 16f,
@@ -239,8 +236,11 @@ fun starterPage(p: AppProject, lang: Lang, name: String) = Page(
 
 // ============================================================================ rendering
 
+/** Custom blocks that place their title themselves (or have none above the content). */
+private val CUSTOM_OWN_TITLE = setOf(CV.SECTION, CV.DIVIDER, CV.BANNER, CV.PRODUCT, CV.PROFILE, CV.ALERT, CV.ADD_BAR)
+
 @Composable
-private fun PText(
+internal fun PText(
     text: String, t: PTheme, size: Int, color: Color = t.ink, bold: Boolean = false,
     align: TextAlign = TextAlign.Start, modifier: Modifier = Modifier, maxLines: Int = Int.MAX_VALUE,
 ) = Text(
@@ -250,7 +250,7 @@ private fun PText(
 )
 
 @Composable
-private fun Placeholder(t: PTheme, modifier: Modifier, radius: Dp = 12.dp, image: String = "") {
+internal fun Placeholder(t: PTheme, modifier: Modifier, radius: Dp = 12.dp, image: String = "") {
     Box(modifier.clip(RoundedCornerShape(radius)).background(t.surface), contentAlignment = Alignment.Center) {
         if (image.isNotEmpty()) PhotoImage(image, 0, Modifier.matchParentSize())
         else Icon(Icons.Rounded.Image, null, tint = t.primary.copy(alpha = 0.35f), modifier = Modifier.size(22.dp))
@@ -272,15 +272,19 @@ fun BlockView(b: Block, p: AppProject, modifier: Modifier = Modifier) {
 }
 
 /** Which kinds expose an editable list of items, and whether those items carry icons. */
-fun Block.hasItems() = kind in setOf(BlockKind.FOOTER, BlockKind.LIST, BlockKind.CATEGORIES, BlockKind.HEADER, BlockKind.CARDS, BlockKind.CUSTOM)
-fun Block.itemsHaveIcons() = (kind == BlockKind.FOOTER && variant == 0) || kind == BlockKind.LIST || kind == BlockKind.CATEGORIES ||
-    (kind == BlockKind.HEADER && variant != 5) || kind == BlockKind.CUSTOM
-/** Header actions are icon-only. */
-fun Block.itemsHaveLabels() = !(kind == BlockKind.HEADER && variant != 5)
+fun Block.hasItems() = if (kind == BlockKind.CUSTOM) CV.hasItems(variant)
+    else kind in setOf(BlockKind.FOOTER, BlockKind.LIST, BlockKind.CATEGORIES, BlockKind.HEADER, BlockKind.CARDS)
+fun Block.itemsHaveIcons() = if (kind == BlockKind.CUSTOM) CV.icons(variant)
+    else (kind == BlockKind.FOOTER && variant == 0) || kind == BlockKind.LIST || kind == BlockKind.CATEGORIES || (kind == BlockKind.HEADER && variant != 5)
+/** Header actions and payment logos are label-free. */
+fun Block.itemsHaveLabels() = if (kind == BlockKind.CUSTOM) CV.labels(variant) else !(kind == BlockKind.HEADER && variant != 5)
 /** A second text per item: a price or detail. */
-fun Block.itemsHaveValue() = kind == BlockKind.CARDS || kind == BlockKind.LIST || kind == BlockKind.CUSTOM
-fun Block.itemsHaveImage() = kind == BlockKind.CARDS || (kind == BlockKind.CUSTOM && variant == 2)
-fun Block.hasActiveItem() = (kind == BlockKind.FOOTER && variant == 0) || kind == BlockKind.CATEGORIES || (kind == BlockKind.HEADER && variant == 5)
+fun Block.itemsHaveValue() = if (kind == BlockKind.CUSTOM) CV.value(variant) else kind == BlockKind.CARDS || kind == BlockKind.LIST
+fun Block.itemsHaveImage() = if (kind == BlockKind.CUSTOM) CV.image(variant) else kind == BlockKind.CARDS
+fun Block.hasActiveItem() = if (kind == BlockKind.CUSTOM) CV.active(variant)
+    else (kind == BlockKind.FOOTER && variant == 0) || kind == BlockKind.CATEGORIES || (kind == BlockKind.HEADER && variant == 5)
+/** Items are payment methods picked from [Shapes.payments] instead of icons. */
+fun Block.itemsArePayments() = kind == BlockKind.CUSTOM && CV.payments(variant)
 
 fun defaultItems(b: Block, lang: Lang): List<BlockItem> {
     fun i(ar: String, en: String, icon: String = "") = BlockItem(if (lang == Lang.AR) ar else en, icon)
@@ -301,11 +305,7 @@ fun defaultItems(b: Block, lang: Lang): List<BlockItem> {
             BlockItem(if (lang == Lang.AR) "كلاسيك" else "Classic", value = "18"), BlockItem(if (lang == Lang.AR) "مميّز" else "Signature", value = "20"),
             BlockItem(if (lang == Lang.AR) "بارد" else "Iced", value = "22"), BlockItem(if (lang == Lang.AR) "موسمي" else "Seasonal", value = "25"),
         ).let { if (b.variant == 2) it.take(1) else if (b.variant == 1) it.take(2) else it.take(2) }
-        BlockKind.CUSTOM -> when (b.variant) {
-            1 -> listOf(i("قهوة عربية", "Arabic coffee", "local_cafe").copy(value = "12"), i("لاتيه", "Latte", "coffee").copy(value = "16"), i("كرواسون", "Croissant", "bakery_dining").copy(value = "9"))
-            2 -> listOf(i("توصيل سريع", "Fast delivery", "local_shipping"), i("دفع آمن", "Secure pay", "lock"), i("دعم 24/7", "24/7 support", "support_agent"), i("نقاط ولاء", "Rewards", "redeem"))
-            else -> listOf(i("توصيل سريع", "Fast delivery", "local_shipping"), i("دفع آمن", "Secure pay", "lock"), i("دعم 24/7", "24/7 support", "support_agent"))
-        }
+        BlockKind.CUSTOM -> CV.items(b.variant, lang)
         else -> emptyList()
     }
 }
@@ -584,7 +584,13 @@ private fun BlockContent(b: Block, p: AppProject, modifier: Modifier) {
         }
 
         BlockKind.CUSTOM -> Column(box.padding(horizontal = pad, vertical = pad * 0.5f), horizontalAlignment = hAlign) {
-            if (b.title.isNotBlank()) {
+            if (b.variant == CV.SECTION) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    PText(b.title, t, 18, bold = true)
+                    if (b.subtitle.isNotBlank()) PText(b.subtitle, t, 12, t.muted)
+                }
+                if (b.button.isNotBlank()) PText(b.button, t, 13, t.primary, bold = true)
+            } else if (b.title.isNotBlank() && b.variant !in CUSTOM_OWN_TITLE) {
                 PText(b.title, t, 16, bold = true, align = ta, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(10.dp))
             }
@@ -617,7 +623,7 @@ private fun BlockContent(b: Block, p: AppProject, modifier: Modifier) {
                         if (i < items.lastIndex) Box(Modifier.fillMaxWidth().padding(horizontal = 14.dp).height(1.dp).background(t.ink.copy(alpha = 0.06f)))
                     }
                 }
-                else -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                CV.CARD_GRID -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     items.chunked(2).forEach { pair ->
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             pair.forEach { item ->
@@ -635,6 +641,7 @@ private fun BlockContent(b: Block, p: AppProject, modifier: Modifier) {
                         }
                     }
                 }
+                else -> CustomExtra(b, t, items, lang, price)
             }
         }
 
