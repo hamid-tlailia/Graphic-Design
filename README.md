@@ -5,7 +5,7 @@ An Android app that teaches graphic design, plus a builder for ready-made UI blo
 
 **Kotlin · Jetpack Compose · Material 3 · Arabic (RTL) & English · Auto / light / dark theme**
 
-📦 Ready-to-install APK: [`release/eyn-1.4.0.apk`](release/eyn-1.4.0.apk)
+📦 Ready-to-install APK: [`release/eyn-1.4.1.apk`](release/eyn-1.4.1.apk)
 
 | Home | Challenge | Lesson | Studio | Page builder | Canvas editor |
 |---|---|---|---|---|---|
@@ -59,7 +59,7 @@ An Android app that teaches graphic design, plus a builder for ready-made UI blo
    - **editable items**: header icons, tab-bar tabs, list rows, categories, products and custom items (name, icon, price, photo), add or remove, and the active tab per page
 5. **Export**:
    - a **presentation board**: one image with the identity header (logo, app icon, palette with HEX codes, typeface, icon style) and every page in a phone frame, 4 per row, numbered and named
-   - a PNG per page, HTML/CSS and React Native code
+   - a PNG per page, plus HTML/CSS and React Native code that mirror the app (same layout, fonts, Material icons in the chosen style, embedded photos, pinned footer)
 
 ### القوالب الحرة · Freeform templates
 Ready templates: buttons, cards, headers, footers, login/sign-up, landing pages and pricing. Or start from a blank canvas (phone, post, story, cover, A4).

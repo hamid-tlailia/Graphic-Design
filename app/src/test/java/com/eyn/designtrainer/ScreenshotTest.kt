@@ -169,6 +169,15 @@ class ScreenshotTest {
     @Test fun s36_canvas_size() = shot("36_canvas_size", Routes.canvas("d2")) { click("الألوان"); click("جوال 360") }
     @Test fun s37_identity_icons() = shot("37_identity_icons", Routes.identity("p1")) { click("محدد") }
     @Test fun s38_saved() = shot("38_saved", Routes.LESSONS) { click("كل الدروس"); click("المحفوظة") }
+    @Test fun s40_code() {
+        val dir = File("build/screens").apply { mkdirs() }
+        for (lang in Lang.entries) {
+            val p = data(lang).projects.first()
+            val tag = lang.name.lowercase()
+            File(dir, "export_$tag.html").writeText(com.eyn.designtrainer.builder.CodeGen.html(p, lang))
+            File(dir, "App_$tag.js").writeText(com.eyn.designtrainer.builder.CodeGen.reactNative(p, lang))
+        }
+    }
     @Test fun s39_custom_blocks() = shot("39_custom_blocks", Routes.build("p1")) { click("القائمة") }
     @Test fun s23_build_dark() = shot("23_build_dark", Routes.build("p1"), dark = true)
 }

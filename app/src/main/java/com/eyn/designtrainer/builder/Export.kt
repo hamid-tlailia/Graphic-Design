@@ -45,6 +45,21 @@ object Exporter {
         return f
     }
 
+    /** A stored photo as a downsized base64 data URI, so exported code is self-contained. */
+    fun dataUri(path: String, max: Int = 900): String? = runCatching {
+        val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        android.graphics.BitmapFactory.decodeFile(path, bounds)
+        var sample = 1
+        while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= max) sample *= 2
+        val bmp = android.graphics.BitmapFactory.decodeFile(path, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample })
+            ?: return@runCatching null
+        // Cut-outs keep their transparency as PNG; photos go out as JPEG.
+        val png = path.endsWith(".png", ignoreCase = true)
+        val out = java.io.ByteArrayOutputStream()
+        bmp.compress(if (png) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG, 82, out)
+        "data:image/${if (png) "png" else "jpeg"};base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+    }.getOrNull()
+
     fun text(ctx: Context, content: String, fileName: String): File =
         File(dir(ctx), fileName).apply { writeText(content) }
 

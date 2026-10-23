@@ -175,10 +175,10 @@ fun ExportScreen(id: String) {
                     }
                 }
                 ExportRow(Icons.Rounded.Code, tr("كود HTML / CSS", "HTML / CSS code"), tr("للمتقدمين", "Advanced")) {
-                    run { Exporter.share(ctx, listOf(Exporter.text(ctx, CodeGen.html(p, lang), "index.html")), "text/html") }
+                    run { Exporter.share(ctx, listOf(codeFile(ctx, "index.html") { CodeGen.html(p, lang, it) }), "text/html") }
                 }
                 ExportRow(Icons.Rounded.PhoneAndroid, tr("كود React Native", "React Native code"), tr("للمتقدمين", "Advanced"), last = true) {
-                    run { Exporter.share(ctx, listOf(Exporter.text(ctx, CodeGen.reactNative(p, lang), "App.js")), "text/plain") }
+                    run { Exporter.share(ctx, listOf(codeFile(ctx, "App.js") { CodeGen.reactNative(p, lang, it) }), "text/plain") }
                 }
             }
             Spacer(Modifier.height(16.dp))
@@ -189,8 +189,8 @@ fun ExportScreen(id: String) {
                     val b = boardBitmap()
                     val files = mutableListOf<File>(Exporter.png(ctx, b, p.name + "_board"))
                     files += Exporter.pdf(ctx, listOf(b) + shots(), p.name)
-                    files += Exporter.text(ctx, CodeGen.html(p, lang), "index.html")
-                    files += Exporter.text(ctx, CodeGen.reactNative(p, lang), "App.js")
+                    files += codeFile(ctx, "index.html") { CodeGen.html(p, lang, it) }
+                    files += codeFile(ctx, "App.js") { CodeGen.reactNative(p, lang, it) }
                     Exporter.share(ctx, files, "*/*")
                 }
             }
@@ -237,3 +237,10 @@ private fun ExportRow(icon: ImageVector, title: String, tag: String, last: Boole
     }
     if (!last) Box(Modifier.fillMaxWidth().height(1.dp).background(c.outline))
 }
+
+/** Generates code off the main thread, embedding each photo once as a data URI. */
+private suspend fun codeFile(ctx: android.content.Context, name: String, gen: ((String) -> String?) -> String): File =
+    withContext(Dispatchers.Default) {
+        val cache = HashMap<String, String?>()
+        Exporter.text(ctx, gen { path -> cache.getOrPut(path) { Exporter.dataUri(path) } }, name)
+    }
