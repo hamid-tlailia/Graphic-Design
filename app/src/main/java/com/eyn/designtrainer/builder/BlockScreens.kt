@@ -1,6 +1,9 @@
 package com.eyn.designtrainer.builder
 
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
@@ -60,12 +63,15 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -73,6 +79,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -80,7 +87,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.eyn.designtrainer.data.AppProject
 import com.eyn.designtrainer.data.Block
@@ -100,12 +109,17 @@ import com.eyn.designtrainer.ui.components.Pill
 import com.eyn.designtrainer.ui.components.PrimaryButton
 import com.eyn.designtrainer.ui.components.Segmented
 import com.eyn.designtrainer.ui.components.SquareIconButton
+import com.eyn.designtrainer.ui.components.ColorDialog
 import com.eyn.designtrainer.ui.components.SwatchRow
+import com.eyn.designtrainer.ui.components.hex
+import com.eyn.designtrainer.ui.screens.contrastRatio
 import com.eyn.designtrainer.ui.components.TopBar
 import com.eyn.designtrainer.ui.components.bounceClick
 import com.eyn.designtrainer.ui.screens.SliderRow
 import com.eyn.designtrainer.ui.theme.Eyn
 import com.eyn.designtrainer.ui.theme.Type
+import kotlinx.coroutines.launch
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 @Composable
@@ -142,6 +156,8 @@ fun IdentityScreen(id: String) {
     val p = rememberProject(id) ?: return
     val isNew = p.pages.isEmpty()
     fun set(f: (AppProject) -> AppProject) = vm.updateProject(id, f)
+    var pickingIcon by remember { mutableStateOf(false) }
+    var editingColor by remember { mutableStateOf<Int?>(null) }
 
     Column(Modifier.fillMaxSize()) {
         TopBar(tr("هوية تطبيقك", "Your app identity"), onBack = { nav.popBackStack() }) {
@@ -156,9 +172,15 @@ fun IdentityScreen(id: String) {
             Spacer(Modifier.height(16.dp))
             val t = p.theme()
             Box(
-                Modifier.fillMaxWidth().height(130.dp).clip(RoundedCornerShape(24.dp)).background(t.surface).animateContentSize(),
+                Modifier.fillMaxWidth().heightIn(min = 150.dp).clip(RoundedCornerShape(24.dp)).background(t.surface).padding(20.dp).animateContentSize(),
                 contentAlignment = Alignment.Center,
             ) { LogoMark(p, 60.dp) }
+            Spacer(Modifier.height(10.dp))
+            OptionChip(tr("افتح في مصمم الشعار — تحكم كامل وتصدير HD شفاف", "Open in logo designer — full control & transparent HD export"), false, Modifier.fillMaxWidth()) {
+                val design = logoDesign(p, lang)
+                vm.saveDesign(design)
+                nav.navigate(Routes.canvas(design.id))
+            }
 
             Label(tr("شكل الشعار", "Logo style"))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -168,19 +190,61 @@ fun IdentityScreen(id: String) {
             }
             AnimatedVisibility(p.logoStyle == 0, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
                 Row(Modifier.padding(top = 12.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    LogoIcons.forEach { k ->
+                    Box(
+                        Modifier.height(46.dp).bounceClick { pickingIcon = true }.clip(RoundedCornerShape(14.dp)).background(c.lilac).padding(horizontal = 14.dp),
+                        contentAlignment = Alignment.Center,
+                    ) { Text(tr("متجر الأيقونات +2000", "Icon store 2000+"), style = Type.label, color = c.onLilac) }
+                    (listOf(p.logoIcon) + QuickLogoIcons).distinct().forEach { k ->
                         val on = p.logoIcon == k
                         Box(
                             Modifier.size(46.dp).bounceClick { set { it.copy(logoIcon = k) } }.clip(RoundedCornerShape(14.dp))
                                 .background(if (on) t.primary else c.surface).border(1.dp, c.outline, RoundedCornerShape(14.dp)),
                             contentAlignment = Alignment.Center,
-                        ) { Icon(CanvasIcons.getValue(k), null, tint = if (on) t.onPrimary else c.muted, modifier = Modifier.size(22.dp)) }
+                        ) { FontIcon(k, if (on) t.onPrimary else c.muted, 24f) }
                     }
                 }
             }
+            AnimatedVisibility(p.logoStyle != 2, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                Column {
+                    Label(tr("خلفية الرمز", "Mark background"))
+                    Segmented(
+                        listOf(tr("مربع مستدير", "Rounded"), tr("دائرة", "Circle"), tr("بدون", "None")), p.logoShape,
+                        { i -> set { it.copy(logoShape = i) } }, Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+            Label(tr("ترتيب الشعار", "Layout"))
+            Segmented(listOf(tr("جنباً إلى جنب", "Side by side"), tr("فوق بعض", "Stacked")), p.logoLayout, { i -> set { it.copy(logoLayout = i) } }, Modifier.fillMaxWidth())
+            Label(tr("خط الشعار", "Logo font"))
+            FontPickerRow(p.logoFont, { i -> set { it.copy(logoFont = i) } }, extraFirst = tr("خط التطبيق", "App font"), sample = p.name.take(6).ifBlank { "أبجد" })
+            Spacer(Modifier.height(8.dp))
+            NumStepper(tr("حجم الاسم", "Name size"), p.logoScale * 100, 50f, 200f, step = 5f, suffix = "%") { v -> set { it.copy(logoScale = v / 100f) } }
+            NumStepper(tr("تباعد الحروف", "Letter spacing"), p.logoSpacing, -4f, 20f) { v -> set { it.copy(logoSpacing = v) } }
+            Label(tr("شعار نصي قصير (اختياري)", "Tagline (optional)"))
+            OutlinedTextField(
+                p.tagline, { v -> set { it.copy(tagline = v.take(40)) } }, singleLine = true,
+                placeholder = { Text(tr("مثال: قهوة مختصة", "e.g. Specialty coffee")) },
+                shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth(),
+            )
 
             Label(tr("الألوان", "Colors"))
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                val custom = p.palette < 0
+                Column(
+                    Modifier.bounceClick {
+                        set { pr -> pr.copy(palette = -1, customColors = pr.customColors.ifEmpty { pr.colors().let { listOf(it.primary, it.surface, it.accent, it.bg, it.ink) } }) }
+                    }.clip(RoundedCornerShape(18.dp)).background(c.surface)
+                        .border(if (custom) 2.dp else 1.dp, if (custom) c.primary else c.outline, RoundedCornerShape(18.dp)).padding(12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Box(
+                        Modifier.size(width = 64.dp, height = 24.dp).clip(CircleShape)
+                            .background(Brush.horizontalGradient(listOf(Color(0xFFEC4899), Color(0xFFF59E0B), Color(0xFF10B981), Color(0xFF3B82F6)))),
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(Icons.Rounded.Add, null, tint = Color.White, modifier = Modifier.size(16.dp)) }
+                    Spacer(Modifier.height(6.dp))
+                    Text(tr("ألواني", "My colors"), style = Type.small, color = c.text)
+                }
                 Palettes.forEachIndexed { i, pal ->
                     val on = p.palette == i
                     Column(
@@ -198,8 +262,33 @@ fun IdentityScreen(id: String) {
                     }
                 }
             }
+            AnimatedVisibility(p.palette < 0, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                Column(Modifier.padding(top = 12.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(c.surface).border(1.dp, c.outline, RoundedCornerShape(18.dp)).padding(14.dp)) {
+                    Text(tr("صمّم لوحة ألوانك — اضغط على أي لون لتغييره", "Build your palette — tap a color to change it"), style = Type.small, color = c.muted)
+                    Spacer(Modifier.height(10.dp))
+                    val labels = listOf(tr("أساسي", "Primary"), tr("ثانوي", "Surface"), tr("تمييز", "Accent"), tr("خلفية", "Background"), tr("نص", "Text"))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        labels.forEachIndexed { i, label ->
+                            val col = p.customColors.getOrNull(i)?.c() ?: Color.Gray
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.bounceClick { editingColor = i }) {
+                                Box(Modifier.size(44.dp).clip(CircleShape).background(col).border(1.dp, c.outline, CircleShape))
+                                Spacer(Modifier.height(4.dp))
+                                Text(label, style = Type.small.copy(fontSize = 11.sp), color = c.text)
+                                Text(col.hex(), style = Type.small.copy(fontSize = 9.sp), color = c.muted)
+                            }
+                        }
+                    }
+                    val contrast = contrastRatio(p.colors().primary.c(), p.colors().bg.c())
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        tr("تباين الأساسي مع الخلفية: %.1f:1 ", "Primary vs background contrast: %.1f:1 ").format(contrast) +
+                            if (contrast >= 4.5) tr("✓ ممتاز", "✓ good") else tr("⚠ ضعيف للنصوص", "⚠ weak for text"),
+                        style = Type.small, color = if (contrast >= 4.5) c.success else c.danger,
+                    )
+                }
+            }
 
-            Label(tr("الخط", "Font"))
+            Label(tr("خط التطبيق", "App font"))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ProjectFonts.forEachIndexed { i, (name, _) -> OptionChip(name, p.font == i, Modifier.weight(1f)) { set { it.copy(font = i) } } }
             }
@@ -216,7 +305,22 @@ fun IdentityScreen(id: String) {
             }
         }
     }
+    if (pickingIcon) IconPickerSheet(p.logoIcon, onDismiss = { pickingIcon = false }) { name ->
+        set { it.copy(logoIcon = name) }; pickingIcon = false
+    }
+    editingColor?.let { i ->
+        ColorDialog(p.customColors.getOrNull(i)?.c() ?: Color.Gray, onDismiss = { editingColor = null }) { col ->
+            set { pr -> pr.copy(customColors = pr.customColors.toMutableList().also { l -> if (i < l.size) l[i] = col.argb() }) }
+            editingColor = null
+        }
+    }
 }
+
+/** Popular picks shown before opening the full icon store. */
+private val QuickLogoIcons = listOf(
+    "local_cafe", "star", "favorite", "bolt", "shopping_bag", "home", "visibility", "school", "restaurant", "spa",
+    "pets", "eco", "diamond", "rocket_launch", "palette", "camera_alt", "music_note", "fitness_center", "local_florist", "auto_awesome",
+)
 
 private fun tr0(lang: com.eyn.designtrainer.i18n.Lang, ar: String, en: String) = if (lang == com.eyn.designtrainer.i18n.Lang.AR) ar else en
 
@@ -318,6 +422,7 @@ fun PageBuilderScreen(id: String) {
     var dragId by remember { mutableStateOf<String?>(null) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
     val heights = remember { mutableStateMapOf<String, Int>() }
+    var resizing by remember { mutableStateOf(false) }
     val blocks = working ?: page.blocks
 
     Column(Modifier.fillMaxSize()) {
@@ -346,77 +451,134 @@ fun PageBuilderScreen(id: String) {
             ) { Icon(Icons.Rounded.Add, null, tint = c.muted, modifier = Modifier.size(18.dp)) }
         }
 
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState(), enabled = dragId == null).padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState(), enabled = dragId == null && !resizing).padding(horizontal = 16.dp, vertical = 8.dp)) {
             val t = p.theme()
-            Column(
-                Modifier.fillMaxWidth().heightIn(min = 420.dp).clip(RoundedCornerShape(28.dp)).background(t.bg)
-                    .border(6.dp, c.text.copy(alpha = 0.85f), RoundedCornerShape(28.dp)).padding(vertical = 14.dp, horizontal = 6.dp),
-            ) {
-                if (blocks.isEmpty()) {
-                    Text(
-                        tr("الصفحة فارغة. أضف قطعاً من المكتبة.", "This page is empty. Add blocks from the library."),
-                        style = Type.body, color = c.muted, modifier = Modifier.padding(24.dp).align(Alignment.CenterHorizontally),
-                    )
-                }
-                blocks.forEach { b ->
-                    val isSel = b.id == selected && !preview
-                    val isDrag = b.id == dragId
-                    Column(
-                        Modifier.zIndex(if (isDrag) 1f else 0f).onSizeChanged { heights[b.id] = it.height }
-                            .graphicsLayer {
-                                translationY = if (isDrag) dragOffset else 0f
-                                shadowElevation = if (isDrag) 18f else 0f
-                                scaleX = if (isDrag) 1.02f else 1f; scaleY = scaleX
-                            },
-                    ) {
-                        AnimatedVisibility(isSel, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-                            Row(
-                                Modifier.padding(start = 8.dp, bottom = 4.dp).clip(RoundedCornerShape(10.dp)).background(c.text).padding(horizontal = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                BlockAction(tr("تعديل", "Edit"), Icons.Rounded.Edit) { editing = b.id }
-                                BlockAction(tr("تكرار", "Duplicate"), Icons.Rounded.ContentCopy) {
-                                    val i = blocks.indexOf(b); setBlocks(blocks.toMutableList().apply { add(i + 1, b.copy(id = newId())) })
-                                }
-                                BlockAction(null, Icons.Rounded.KeyboardArrowUp) {
-                                    val i = blocks.indexOf(b); if (i > 0) setBlocks(blocks.toMutableList().apply { add(i - 1, removeAt(i)) })
-                                }
-                                BlockAction(null, Icons.Rounded.KeyboardArrowDown) {
-                                    val i = blocks.indexOf(b); if (i < blocks.lastIndex) setBlocks(blocks.toMutableList().apply { add(i + 1, removeAt(i)) })
-                                }
-                                BlockAction(tr("حذف", "Delete"), Icons.Rounded.Delete) { setBlocks(blocks - b); selected = null }
-                            }
+
+            /** Moves [b] by one step inside its own group (top blocks or pinned-bottom blocks). */
+            fun move(b: Block, dir: Int) {
+                val group = blocks.filter { it.pinBottom == b.pinBottom }
+                val gi = group.indexOfFirst { it.id == b.id }
+                val other = group.getOrNull(gi + dir) ?: return
+                val list = blocks.toMutableList()
+                val a = list.indexOfFirst { it.id == b.id }; val o = list.indexOfFirst { it.id == other.id }
+                list[a] = other; list[o] = b
+                setBlocks(list)
+            }
+
+            // State is read here and passed down: reads inside this local function don't trigger recomposition
+            // reliably when it is called from the PinnedColumn slots.
+            val sel = selected
+            val dragging = dragId
+            val offset = dragOffset
+
+            @Composable
+            fun BuilderBlock(b: Block) {
+                val isSel = b.id == sel && !preview
+                val isDrag = b.id == dragging
+                val group = blocks.filter { it.pinBottom == b.pinBottom }
+                val gi = group.indexOfFirst { it.id == b.id }
+                Column(
+                    Modifier.zIndex(if (isDrag) 1f else 0f).onSizeChanged { heights[b.id] = it.height }
+                        .graphicsLayer {
+                            translationY = if (isDrag) offset else 0f
+                            shadowElevation = if (isDrag) 24f else 0f
+                            scaleX = if (isDrag) 1.02f else 1f; scaleY = scaleX
                         }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
-                                    .border(if (isSel) 2.dp else 0.dp, if (isSel) c.primary else Color.Transparent, RoundedCornerShape(14.dp))
-                                    .clickable(enabled = !preview) { selected = if (selected == b.id) null else b.id },
-                            ) { BlockView(b, p) }
-                            if (!preview) Box(
-                                Modifier.width(26.dp).height(48.dp).pointerInput(b.id) {
-                                    detectDragGestures(
-                                        onDragStart = { working = page.blocks; dragId = b.id; dragOffset = 0f; selected = null },
-                                        onDragEnd = { working?.let { setBlocks(it) }; working = null; dragId = null; dragOffset = 0f },
-                                        onDragCancel = { working = null; dragId = null; dragOffset = 0f },
-                                    ) { change, amount ->
-                                        change.consume()
-                                        dragOffset += amount.y
-                                        val list = working ?: return@detectDragGestures
-                                        val i = list.indexOfFirst { it.id == dragId }
-                                        if (dragOffset > 0 && i < list.lastIndex) {
-                                            val h = heights[list[i + 1].id] ?: return@detectDragGestures
-                                            if (dragOffset > h / 2f) { working = list.toMutableList().apply { add(i + 1, removeAt(i)) }; dragOffset -= h }
-                                        } else if (dragOffset < 0 && i > 0) {
-                                            val h = heights[list[i - 1].id] ?: return@detectDragGestures
-                                            if (-dragOffset > h / 2f) { working = list.toMutableList().apply { add(i - 1, removeAt(i)) }; dragOffset += h }
-                                        }
-                                    }
-                                },
-                                contentAlignment = Alignment.Center,
-                            ) { Icon(Icons.Rounded.DragIndicator, null, tint = c.muted.copy(alpha = 0.7f), modifier = Modifier.size(20.dp)) }
+                        // Opaque while dragging so the block never shows through the ones beneath it.
+                        .then(if (isDrag) Modifier.clip(RoundedCornerShape(14.dp)).background(t.bg) else Modifier),
+                ) {
+                    AnimatedVisibility(isSel, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                        Row(
+                            Modifier.padding(start = 8.dp, bottom = 4.dp).horizontalScroll(rememberScrollState())
+                                .clip(RoundedCornerShape(10.dp)).background(c.text).padding(horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            BlockAction(tr("تعديل", "Edit"), Icons.Rounded.Edit) { editing = b.id }
+                            BlockAction(tr("تكرار", "Duplicate"), Icons.Rounded.ContentCopy) {
+                                val i = blocks.indexOf(b); setBlocks(blocks.toMutableList().apply { add(i + 1, b.copy(id = newId())) })
+                            }
+                            BlockAction(tr("أعلى", "Up"), Icons.Rounded.KeyboardArrowUp, enabled = gi > 0) { move(b, -1) }
+                            BlockAction(tr("أسفل", "Down"), Icons.Rounded.KeyboardArrowDown, enabled = gi < group.lastIndex) { move(b, 1) }
+                            BlockAction(tr("حذف", "Delete"), Icons.Rounded.Delete) { setBlocks(blocks - b); selected = null }
                         }
                     }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
+                                .border(if (isSel) 2.dp else 0.dp, if (isSel) c.primary else Color.Transparent, RoundedCornerShape(14.dp))
+                                .clickable(enabled = !preview) { selected = if (sel == b.id) null else b.id },
+                        ) { BlockView(b, p) }
+                        if (!preview) Box(
+                            Modifier.width(26.dp).height(48.dp).pointerInput(b.id) {
+                                detectDragGestures(
+                                    onDragStart = { working = page.blocks; dragId = b.id; dragOffset = 0f; selected = null },
+                                    onDragEnd = { working?.let { setBlocks(it) }; working = null; dragId = null; dragOffset = 0f },
+                                    onDragCancel = { working = null; dragId = null; dragOffset = 0f },
+                                ) { change, amount ->
+                                    change.consume()
+                                    dragOffset += amount.y
+                                    val list = working ?: return@detectDragGestures
+                                    val me = list.firstOrNull { it.id == dragId } ?: return@detectDragGestures
+                                    // Reorder only within the same group so pinned footers stay at the bottom.
+                                    val grp = list.filter { it.pinBottom == me.pinBottom }
+                                    val i = grp.indexOfFirst { it.id == me.id }
+                                    val neighbour = when {
+                                        dragOffset > 0 -> grp.getOrNull(i + 1)
+                                        dragOffset < 0 -> grp.getOrNull(i - 1)
+                                        else -> null
+                                    } ?: return@detectDragGestures
+                                    val h = heights[neighbour.id] ?: return@detectDragGestures
+                                    if (abs(dragOffset) > h / 2f) {
+                                        val l = list.toMutableList()
+                                        val a = l.indexOfFirst { it.id == me.id }; val o = l.indexOfFirst { it.id == neighbour.id }
+                                        l[a] = neighbour; l[o] = me
+                                        working = l
+                                        dragOffset -= if (dragOffset > 0) h else -h
+                                    }
+                                }
+                            },
+                            contentAlignment = Alignment.Center,
+                        ) { Icon(Icons.Rounded.DragIndicator, null, tint = c.muted.copy(alpha = 0.7f), modifier = Modifier.size(20.dp)) }
+                    }
+                }
+            }
+
+            Box(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(t.bg)
+                    .border(6.dp, c.text.copy(alpha = 0.85f), RoundedCornerShape(28.dp)).padding(vertical = 14.dp, horizontal = 6.dp),
+            ) {
+                PinnedColumn(
+                    page.height.dp, Modifier.fillMaxWidth(),
+                    top = {
+                        if (blocks.isEmpty()) Text(
+                            tr("الصفحة فارغة. أضف قطعاً من المكتبة.", "This page is empty. Add blocks from the library."),
+                            style = Type.body, color = c.muted, modifier = Modifier.padding(24.dp).align(Alignment.CenterHorizontally),
+                        )
+                        blocks.filter { !it.pinBottom }.forEach { key(it.id) { BuilderBlock(it) } }
+                    },
+                    bottom = { blocks.filter { it.pinBottom }.forEach { key(it.id) { BuilderBlock(it) } } },
+                )
+            }
+            // Page height handle: drag up/down to make the page shorter or longer.
+            if (!preview) {
+                val density = LocalDensity.current
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 6.dp).pointerInput(page.id) {
+                        detectDragGestures(
+                            onDragStart = { resizing = true },
+                            onDragEnd = { resizing = false },
+                            onDragCancel = { resizing = false },
+                        ) { change, amount ->
+                            change.consume()
+                            val dy = with(density) { amount.y.toDp().value }
+                            vm.updateProject(id) { pr -> pr.copy(pages = pr.pages.map { if (it.id == page.id) it.copy(height = (it.height + dy).coerceIn(300f, 4000f)) else it }) }
+                        }
+                    }.padding(vertical = 6.dp),
+                    horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.width(48.dp).height(5.dp).clip(CircleShape).background(if (resizing) c.primary else c.muted.copy(alpha = 0.5f)))
+                    Spacer(Modifier.width(10.dp))
+                    Text(tr("طول الصفحة: ${page.height.roundToInt()} — اسحب للتعديل", "Page height: ${page.height.roundToInt()} — drag to resize"), style = Type.small, color = c.muted)
                 }
             }
             if (!preview) {
@@ -507,15 +669,16 @@ fun PageBuilderScreen(id: String) {
 }
 
 @Composable
-private fun BlockAction(label: String?, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+private fun BlockAction(label: String?, icon: androidx.compose.ui.graphics.vector.ImageVector, enabled: Boolean = true, onClick: () -> Unit) {
+    val tint = if (enabled) Eyn.c.bg else Eyn.c.bg.copy(alpha = 0.35f)
     Row(
-        Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 7.dp),
+        Modifier.clip(RoundedCornerShape(8.dp)).clickable(enabled = enabled, onClick = onClick).padding(horizontal = 8.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, null, tint = Eyn.c.bg, modifier = Modifier.size(16.dp))
+        Icon(icon, null, tint = tint, modifier = Modifier.size(16.dp))
         if (label != null) {
             Spacer(Modifier.width(4.dp))
-            Text(label, style = Type.small, color = Eyn.c.bg)
+            Text(label, style = Type.small, color = tint)
         }
     }
 }
@@ -526,6 +689,12 @@ private fun BlockAction(label: String?, icon: androidx.compose.ui.graphics.vecto
 @Composable
 private fun BlockEditSheet(b: Block, p: AppProject, onChange: (Block) -> Unit, onDismiss: () -> Unit) {
     val c = Eyn.c
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val latest by rememberUpdatedState(b)
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) scope.launch { Photos.import(ctx, uri)?.let { onChange(latest.copy(image = it)) } }
+    }
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val t = p.theme()
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = c.surface) {
@@ -552,8 +721,18 @@ private fun BlockEditSheet(b: Block, p: AppProject, onChange: (Block) -> Unit, o
                 )
             }
 
+            if (b.kind == BlockKind.HERO || b.kind == BlockKind.CARDS) {
+                Label(tr("صورة", "Photo"))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OptionChip(if (b.image.isEmpty()) tr("اختر صورة من الجوال", "Pick a photo") else tr("تغيير الصورة", "Change photo"), false) {
+                        picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    }
+                    if (b.image.isNotEmpty()) OptionChip(tr("إزالة", "Remove"), false) { onChange(b.copy(image = "")) }
+                }
+            }
+
             Label(tr("الخلفية", "Background"))
-            val pal = Palettes[p.palette.coerceIn(Palettes.indices)]
+            val pal = p.colors()
             SwatchRow(
                 b.bg?.c() ?: Color.Transparent,
                 { col -> onChange(b.copy(bg = if (col.alpha == 0f) null else col.argb())) },
@@ -566,6 +745,13 @@ private fun BlockEditSheet(b: Block, p: AppProject, onChange: (Block) -> Unit, o
             Spacer(Modifier.height(12.dp))
             SliderRow(tr("المسافة الداخلية", "Inner spacing"), b.padding, 0f..40f, steps = 9) { onChange(b.copy(padding = it.roundToInt().toFloat())) }
             SliderRow(tr("استدارة الزوايا", "Corner radius"), b.radius, 0f..32f, steps = 7) { onChange(b.copy(radius = it.roundToInt().toFloat())) }
+            NumStepper(tr("حجم النص", "Text size"), b.textScale * 100, 60f, 200f, step = 5f, suffix = "%") { onChange(b.copy(textScale = it / 100f)) }
+            NumStepper(tr("الارتفاع الأدنى", "Minimum height"), b.minHeight, 0f, 800f, step = 4f) { onChange(b.copy(minHeight = it)) }
+            Label(tr("الموضع في الصفحة", "Position on page"))
+            Segmented(
+                listOf(tr("مع المحتوى", "With content"), tr("مثبّت في الأسفل", "Pinned to bottom")), if (b.pinBottom) 1 else 0,
+                { onChange(b.copy(pinBottom = it == 1)) }, Modifier.fillMaxWidth(),
+            )
             Spacer(Modifier.height(12.dp))
             PrimaryButton(tr("تم", "Done"), onClick = onDismiss)
             Spacer(Modifier.height(16.dp))

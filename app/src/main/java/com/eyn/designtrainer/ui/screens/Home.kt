@@ -20,6 +20,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.FormatAlignLeft
 import androidx.compose.material.icons.rounded.Dashboard
+import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.Print
+import androidx.compose.material.icons.rounded.Smartphone
+import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.SettingsEthernet
@@ -41,6 +45,7 @@ import com.eyn.designtrainer.ui.LocalData
 import com.eyn.designtrainer.ui.LocalNav
 import com.eyn.designtrainer.ui.LocalVm
 import com.eyn.designtrainer.ui.Routes
+import com.eyn.designtrainer.ui.goTab
 import com.eyn.designtrainer.ui.components.EynCard
 import com.eyn.designtrainer.ui.components.IconTile
 import com.eyn.designtrainer.ui.components.Pill
@@ -64,6 +69,10 @@ fun catStyle(cat: Cat): CatStyle {
         Cat.TYPE -> CatStyle(Icons.Rounded.TextFields, c.success, c.successSoft)
         Cat.ALIGN -> CatStyle(Icons.AutoMirrored.Rounded.FormatAlignLeft, c.primary, c.lilac)
         Cat.BASICS -> CatStyle(Icons.Rounded.Widgets, c.accent, c.accentSoft)
+        Cat.IMAGERY -> CatStyle(Icons.Rounded.Image, c.success, c.successSoft)
+        Cat.BRANDING -> CatStyle(Icons.Rounded.Verified, c.accent, c.accentSoft)
+        Cat.UX -> CatStyle(Icons.Rounded.Smartphone, c.primary, c.lilac)
+        Cat.PRINT -> CatStyle(Icons.Rounded.Print, c.primary, c.lilac)
     }
 }
 
@@ -128,18 +137,39 @@ fun HomeScreen() {
             }
         }
 
+        val next = Content.lessons.firstOrNull { it.id !in d.completed && com.eyn.designtrainer.data.Path.isUnlocked(it.id, d.completed) }
+        if (next != null) {
+            Spacer(Modifier.height(14.dp))
+            val doneAll = Content.lessons.count { it.id in d.completed }
+            EynCard(Modifier.fillMaxWidth(), onClick = { nav.navigate(Routes.lesson(next.id)) }) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val st = catStyle(next.cat)
+                    IconTile(st.icon, st.bg, st.tint)
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(tr("تابع المسار · ${doneAll}/${Content.lessons.size}", "Continue the path · ${doneAll}/${Content.lessons.size}"), style = Type.small, color = c.muted)
+                        Text(next.title.t(), style = Type.h3, color = c.text)
+                    }
+                    Pill(tr("ابدأ", "Start"), c.lilac, c.onLilac)
+                }
+                Spacer(Modifier.height(10.dp))
+                ProgressBar(doneAll / Content.lessons.size.toFloat(), Modifier.fillMaxWidth(), height = 4.dp)
+            }
+        }
         Spacer(Modifier.height(24.dp))
-        SectionTitle(tr("الأقسام", "Sections"), tr("عرض الكل", "View all")) { nav.navigate(Routes.LESSONS) { launchSingleTop = true } }
+        SectionTitle(tr("الأقسام", "Sections"), tr("عرض الكل", "View all")) { nav.goTab(Routes.LESSONS) }
         val cats = listOf(Cat.SPACING, Cat.COLORS, Cat.TYPE, Cat.ALIGN)
         cats.chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 row.forEach { cat ->
                     val s = catStyle(cat)
                     EynCard(Modifier.weight(1f), onClick = { nav.navigate(Routes.quiz("cat:${cat.name}")) }) {
-                        IconTile(s.icon, s.bg, s.tint)
-                        Spacer(Modifier.height(16.dp))
-                        Text(cat.label.t(), style = Type.h3, color = c.text)
-                        Text(tr("${Content.byCat(cat).size} تحديات", "${Content.byCat(cat).size} challenges"), style = Type.small, color = c.muted)
+                        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                            IconTile(s.icon, s.bg, s.tint, size = 52.dp, radius = 16.dp, iconSize = 26.dp)
+                            Spacer(Modifier.height(14.dp))
+                            Text(cat.label.t(), style = Type.h3, color = c.text)
+                            Text(tr("${Content.byCat(cat).size} تحديات", "${Content.byCat(cat).size} challenges"), style = Type.small, color = c.muted)
+                        }
                     }
                 }
             }
@@ -148,7 +178,7 @@ fun HomeScreen() {
 
         Spacer(Modifier.height(12.dp))
         SectionTitle(tr("وضع البناء", "Build mode"))
-        EynCard(onClick = { nav.navigate(Routes.STUDIO) { launchSingleTop = true } }, color = c.lilac, border = null, padding = PaddingValues(18.dp)) {
+        EynCard(onClick = { nav.goTab(Routes.STUDIO) }, color = c.lilac, border = null, padding = PaddingValues(18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(tr("صمّم تطبيقك بالقطع", "Design your app with blocks"), style = Type.h3, color = c.onLilac)

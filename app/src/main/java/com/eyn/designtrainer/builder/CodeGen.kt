@@ -18,7 +18,7 @@ object CodeGen {
 
     private data class Sample(val cats: List<String>, val items: List<String>, val tabs: List<String>, val login: List<String>, val contact: List<String>, val rows: List<String>)
 
-    private fun palette(p: AppProject) = if (p.applyIdentity) Palettes[p.palette.coerceIn(Palettes.indices)] else Palettes[1]
+    private fun palette(p: AppProject) = if (p.applyIdentity) p.colors() else Palettes[1]
 
     private fun fontCss(p: AppProject): Pair<String, String> = when (if (p.applyIdentity) p.font else 2) {
         0 -> "Tajawal" to "Tajawal:wght@400;700"

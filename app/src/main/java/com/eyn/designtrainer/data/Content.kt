@@ -8,9 +8,16 @@ enum class Cat(val label: L) {
     COLORS(L("الألوان", "Colors")),
     TYPE(L("الخطوط", "Typography")),
     ALIGN(L("المحاذاة", "Alignment")),
+    IMAGERY(L("الصور", "Imagery")),
+    BRANDING(L("الهوية", "Branding")),
+    UX(L("الواجهات", "UI/UX")),
+    PRINT(L("الطباعة", "Print")),
 }
 
-enum class Ill { SPACING_BARS, HIERARCHY, COLOR_RULE, ALIGN_GRID, ARABIC_TYPE, CONTRAST, PROXIMITY, WHITESPACE, TYPE_SCALE, BALANCE }
+enum class Ill {
+    SPACING_BARS, HIERARCHY, COLOR_RULE, ALIGN_GRID, ARABIC_TYPE, CONTRAST, PROXIMITY, WHITESPACE, TYPE_SCALE, BALANCE,
+    ELEMENTS, COLUMNS, WHEEL, UI_KIT, VECTOR, LOGO_TYPES, PRINT_MARKS,
+}
 
 /** Where "Try it" sends the learner. */
 enum class Practice { SPACING, CONTRAST, FONTS, STUDIO }
@@ -45,7 +52,7 @@ data class Question(
 )
 
 object Content {
-    val lessons = listOf(
+    private val baseLessons = listOf(
         Lesson(
             "grid8", Cat.SPACING, 5, 4, Ill.SPACING_BARS,
             L("نظام الـ 8 بكسل", "The 8px grid"),
@@ -188,6 +195,12 @@ object Content {
         ),
     )
 
+    /** Every lesson in learning-path order (unit by unit). */
+    val lessons: List<Lesson> by lazy {
+        val all = baseLessons + Path.extraLessons
+        Path.units.flatMap { u -> u.lessonIds.map { id -> all.first { it.id == id } } }
+    }
+
     fun lesson(id: String) = lessons.first { it.id == id }
 
     private fun two(goodFirst: Boolean, vis: Vis) =
@@ -196,7 +209,7 @@ object Content {
 
     private fun texts(vararg t: L) = t.map { Option(text = it) }
 
-    val questions = listOf(
+    private val baseQuestions = listOf(
         // ---------------------------------------------------- spacing
         Question(
             "s1", Cat.SPACING,
@@ -367,6 +380,8 @@ object Content {
             listOf(L("حجم + تباين", "size + contrast")), "hierarchy",
         ),
     )
+
+    val questions: List<Question> by lazy { baseQuestions + Path.extraQuestions }
 
     fun byCat(cat: Cat) = questions.filter { it.cat == cat }
 

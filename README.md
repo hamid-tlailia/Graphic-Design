@@ -5,7 +5,7 @@ An Android app that teaches graphic design, plus a builder for ready-made UI blo
 
 **Kotlin · Jetpack Compose · Material 3 · Arabic (RTL) & English · Auto / light / dark theme**
 
-📦 Ready-to-install APK: [`release/eyn-1.1.0.apk`](release/eyn-1.1.0.apk)
+📦 Ready-to-install APK: [`release/eyn-1.2.0.apk`](release/eyn-1.2.0.apk)
 
 | Home | Challenge | Lesson | Studio | Page builder | Canvas editor |
 |---|---|---|---|---|---|
@@ -17,20 +17,44 @@ An Android app that teaches graphic design, plus a builder for ready-made UI blo
 
 ## الميزات · Features
 
-### التعلّم · Learning (screens 01–10)
-- **Onboarding**: three pages, with a language switch and an optional name.
-- **Home**: greeting, day streak 🔥, a daily challenge of 5 questions that stays the same all day, and sections (spacing, colors, typography, alignment).
-- **"Which is better?" challenges**: visual answers, an explanation after each one (why it's better, tags, a related lesson), +10 points, and a results screen.
-- **Lessons**: 10 lessons with filters, search, progress, unlocking and bookmarks. Each lesson has an animated illustration, key points, "Try it" and "Quiz me".
-- **Practice tools**: spacing trainer (padding/gap/alignment with checking), WCAG contrast checker, and a font lab (IBM Plex Sans Arabic, Cairo, Tajawal).
-- **Profile**: level, points, accuracy, streak, weekly activity chart and badges. **Settings**: theme (auto/light/dark), language, name, reset progress.
+### التعلّم · Learning
+| Learning path | Spacing drills |
+|---|---|
+| ![](docs/screens/29_path.jpg) | ![](docs/screens/30_drill.jpg) |
+
+- **A complete graphic-design path**: 9 units, 34 lessons, unlocked unit by unit:
+  1. Foundations: elements, principles, hierarchy, Gestalt, proximity
+  2. Space & layout: 8px grid, white space, alignment, grids & columns, composition / rule of thirds, balance
+  3. Color: color wheel & harmony, 60-30-10, contrast, color psychology, RGB/CMYK
+  4. Typography: letter anatomy, Arabic type, type scale, pairing, readability
+  5. Images: photos & cropping, icons, raster vs vector
+  6. Identity: logo types, designing a logo step by step, brand guidelines
+  7. Interfaces: UX basics, components & states, accessibility
+  8. Print: preparing for print (CMYK, 300 dpi, bleed), sizes & formats
+  9. Going pro: the design process, building a portfolio
+- **Home**: greeting, day streak, a daily challenge of 5 questions, "continue the path", and sections.
+- **"Which is better?" challenges** with an explanation after each answer. After a lesson quiz, "Next lesson" takes you straight on.
+- **Practice tools**:
+  - **6 different spacing drills**: product card, icon button, vertical card, list, form field, hero section.
+  - WCAG contrast checker.
+  - Font lab.
+- **Profile and settings**: level, points, accuracy, streak, weekly activity and badges; theme (auto/light/dark), language, name, reset progress.
 
 ### وضع البناء بالقطع · Block build mode (screens 11–15)
-1. **Identity**: app name, logo style (icon + text / letter / text only), color palette, font.
-2. **Block library**: header, hero, search, categories, cards, lists, text, forms, buttons and footer, with several variants each. Multi-select.
-3. **Page builder**: multiple pages, drag-to-reorder blocks, duplicate, delete, move up/down, preview mode.
-4. **Edit block**: text, variant, background color, alignment, inner spacing, corner radius, with a live preview.
-5. **Export**: presentation board PNG + PDF, a PNG per page, HTML/CSS code and React Native code.
+1. **Identity**:
+   - app name, logo (icon + text / letter / text only) with a **2,100+ icon store**
+   - mark background (rounded / circle / none), side-by-side or stacked layout
+   - **19 Arabic & Latin fonts** for the logo, name size, letter spacing, tagline
+   - preset palettes or **your own colors** (with a contrast check)
+   - **Open in logo designer** for full control and transparent HD export
+2. **Block library**: header, hero, search, categories, cards, lists, text, forms, buttons, footer.
+3. **Page builder**:
+   - drag-to-reorder and labeled Up/Down buttons
+   - **footers pinned to the bottom of the page**
+   - a handle under the phone frame to **resize the page height**
+   - multiple pages, preview mode
+4. **Edit block**: text, variant, background, alignment, spacing, radius, **text size, minimum height, pin to bottom, a photo** for hero and card blocks.
+5. **Export**: presentation board PNG + PDF, a PNG per page, HTML/CSS and React Native code.
 
 ### القوالب الحرة · Freeform templates
 Ready templates: buttons, cards, headers, footers, login/sign-up, landing pages and pricing. Or start from a blank canvas (phone, post, story, cover, A4).
@@ -48,7 +72,11 @@ Ready templates: buttons, cards, headers, footers, login/sign-up, landing pages 
 - **All 2,100+ Material icons** with search in Arabic and English.
 - Rotation, lock, show/hide, layers, z-order (forward, backward, to front, to back), duplicate, undo/redo, zoom.
 - The properties panel stays above the keyboard while you type.
-- Export: save to the gallery or share as PNG.
+- **Background removal** from photos (on-device, ML Kit), then a new color, gradient or photo behind the subject.
+- **Design review**: a score out of 100 with a verdict ("ready to approve" / "needs small touches" / "needs work"), notes on contrast, font size, font and color count, the 4/8 grid, margins, touch targets, near-miss alignment and overlapping text, plus one-tap fixes.
+- **Logo templates** and **19 fonts** (IBM Plex, Cairo, Tajawal, Almarai, Amiri, Aref Ruqaa, Changa, El Messiri, Lalezar, Lemonada, Marhey, Rakkas, Reem Kufi, Poppins, Montserrat, Playfair, Bebas Neue, Pacifico, Lobster).
+- A handle on the properties panel to hide it and see the full canvas. A grid appears when snapping is on.
+- **Export**: PNG or JPG, at screen resolution, HD 2K or 4K, with or without a transparent background. Save to the gallery or share.
 
 Arabic templates are mirrored automatically for right-to-left reading.
 
@@ -73,4 +101,4 @@ app/src/main/java/com/eyn/designtrainer/
                 page builder, export), code generation, PNG/PDF export
 ```
 
-Fonts: IBM Plex Sans Arabic, Cairo, Tajawal — SIL Open Font License.
+Fonts: all bundled fonts are from Google Fonts under the SIL Open Font License; Material Icons under Apache 2.0.

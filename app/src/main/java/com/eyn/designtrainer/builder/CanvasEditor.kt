@@ -17,6 +17,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -53,6 +54,10 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Redo
 import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.AutoFixHigh
+import androidx.compose.material.icons.rounded.FactCheck
+import androidx.compose.material.icons.rounded.IosShare
+import androidx.compose.material.icons.rounded.Wallpaper
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AddPhotoAlternate
 import androidx.compose.material.icons.rounded.AlignHorizontalCenter
@@ -428,6 +433,7 @@ private enum class PanelTab(val label: L, val icon: ImageVector) {
 
 /** Who receives the next picked photo: an element id, or the canvas background. */
 private const val CANVAS_TARGET = "__canvas__"
+private const val BACK_PREFIX = "back:"
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -443,11 +449,19 @@ fun CanvasEditorScreen(id: String) {
         return
     }
     val state = remember { EditorState(initial) }
+    val lang = LocalLang.current
     var tab by remember { mutableStateOf(PanelTab.ADD) }
     var zoom by remember { mutableFloatStateOf(1f) }
     var snap by remember { mutableStateOf(true) }
     var renaming by remember { mutableStateOf(false) }
     var pickingIcon by remember { mutableStateOf(false) }
+    var panelOpen by remember { mutableStateOf(true) }
+    var reviewing by remember { mutableStateOf(false) }
+    var exporting by remember { mutableStateOf(false) }
+    var exportScale by remember { mutableStateOf<Float?>(null) }
+    var exportTransparent by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    val density = LocalDensity.current
     val layer = rememberGraphicsLayer()
     val scope = rememberCoroutineScope()
     val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
@@ -460,6 +474,7 @@ fun CanvasEditorScreen(id: String) {
             val path = Photos.import(ctx, uri)
             if (path == null) Toast.makeText(ctx, "✗", Toast.LENGTH_SHORT).show()
             else if (target == CANVAS_TARGET) state.canvas(null) { it.copy(bgImage = path) }
+            else if (target.startsWith(BACK_PREFIX)) state.updateEl(target.removePrefix(BACK_PREFIX)) { it.copy(backImage = path) }
             else state.updateEl(target) { it.copy(image = path) }
         }
     }
@@ -475,19 +490,53 @@ fun CanvasEditorScreen(id: String) {
 
     LaunchedEffect(state.selectedId) {
         if (state.selectedId != null && tab == PanelTab.ADD) tab = PanelTab.STYLE
+        if (state.selectedId != null) panelOpen = true
     }
 
-    fun export(gallery: Boolean) = scope.launch {
+    /**
+     * Renders the canvas at [widthPx] (0 = current screen size), optionally without background,
+     * and saves or shares it. The canvas is temporarily re-laid out at export scale.
+     */
+    fun export(widthPx: Int, transparent: Boolean, jpeg: Boolean, gallery: Boolean) = scope.launch {
+        if (busy) return@launch
+        busy = true
         val sel = state.selectedId
         state.selectedId = null
-        delay(80)
-        val bmp = Exporter.capture(layer)
+        if (widthPx > 0) {
+            val d = state.design
+            // Cap at ~16 MP so very tall canvases stay within memory.
+            val px = minOf(widthPx.toFloat(), kotlin.math.sqrt(16_000_000f * d.w / d.h))
+            exportScale = px / (d.w * density.density)
+        }
+        exportTransparent = transparent && !jpeg
+        delay(350)
+        val bmp = runCatching { Exporter.capture(layer) }.getOrNull()
+        exportScale = null; exportTransparent = false
         state.selectedId = sel
+        busy = false
+        if (bmp == null) { Toast.makeText(ctx, "✗", Toast.LENGTH_SHORT).show(); return@launch }
+        val name = state.design.name
         if (gallery) {
-            val ok = Exporter.saveToGallery(ctx, bmp, state.design.name)
-            Toast.makeText(ctx, if (ok) "✓" else "Android 10+", Toast.LENGTH_SHORT).show()
-            if (!ok) Exporter.share(ctx, listOf(Exporter.png(ctx, bmp, state.design.name)), "image/png")
-        } else Exporter.share(ctx, listOf(Exporter.png(ctx, bmp, state.design.name)), "image/png")
+            val ok = Exporter.saveToGallery(ctx, bmp, name, jpeg)
+            Toast.makeText(ctx, if (ok) "✓ ${bmp.width}×${bmp.height}" else "Android 10+", Toast.LENGTH_SHORT).show()
+            if (!ok) Exporter.share(ctx, listOf(if (jpeg) Exporter.jpg(ctx, bmp, name) else Exporter.png(ctx, bmp, name)), if (jpeg) "image/jpeg" else "image/png")
+        } else Exporter.share(ctx, listOf(if (jpeg) Exporter.jpg(ctx, bmp, name) else Exporter.png(ctx, bmp, name)), if (jpeg) "image/jpeg" else "image/png")
+    }
+
+    fun removeBackground(id: String) = scope.launch {
+        val e = state.design.els.firstOrNull { it.id == id } ?: return@launch
+        busy = true
+        Toast.makeText(ctx, if (lang == Lang.AR) "جارٍ إزالة الخلفية…" else "Removing background…", Toast.LENGTH_SHORT).show()
+        when (val r = Photos.removeBackground(ctx, e.image)) {
+            is Photos.CutResult.Done -> state.updateEl(id) { it.copy(image = r.path, fit = 1) }
+            Photos.CutResult.Downloading -> Toast.makeText(
+                ctx, if (lang == Lang.AR) "يتم تنزيل أداة إزالة الخلفية من Google Play، حاول بعد دقيقة" else "Downloading the background remover from Google Play — try again in a minute", Toast.LENGTH_LONG,
+            ).show()
+            is Photos.CutResult.Failed -> Toast.makeText(
+                ctx, (if (lang == Lang.AR) "تعذّرت إزالة الخلفية. تحتاج خدمات Google Play." else "Couldn't remove the background. Google Play services required.") + (r.message?.let { "\n$it" } ?: ""), Toast.LENGTH_LONG,
+            ).show()
+        }
+        busy = false
     }
 
     // imePadding keeps the properties panel above the keyboard while typing.
@@ -505,11 +554,19 @@ fun CanvasEditorScreen(id: String) {
                     Text("${state.design.w.toInt()}×${state.design.h.toInt()}", style = Type.small, color = c.muted, maxLines = 1)
                 }
             }
-            ToolIcon(Icons.AutoMirrored.Rounded.Undo, state.canUndo) { state.undo() }
-            ToolIcon(Icons.AutoMirrored.Rounded.Redo, state.canRedo) { state.redo() }
-            ToolIcon(Icons.Rounded.Grid4x4, true, active = snap) { snap = !snap }
-            ToolIcon(Icons.Rounded.Download, true) { export(true) }
-            ToolIcon(Icons.Rounded.Share, true) { export(false) }
+            ToolIcon(Icons.AutoMirrored.Rounded.Undo, state.canUndo, desc = tr("تراجع", "Undo")) { state.undo() }
+            ToolIcon(Icons.AutoMirrored.Rounded.Redo, state.canRedo, desc = tr("إعادة", "Redo")) { state.redo() }
+            ToolIcon(Icons.Rounded.Grid4x4, true, active = snap, desc = tr("الشبكة والالتقاط", "Grid & snap")) {
+                snap = !snap
+                Toast.makeText(
+                    ctx,
+                    if (lang == Lang.AR) (if (snap) "الشبكة والالتقاط: مفعّل — العناصر تلتصق بالشبكة وبحواف العناصر الأخرى" else "الشبكة والالتقاط: متوقف — تحريك حر")
+                    else (if (snap) "Grid & snapping on — elements snap to the grid and to other elements" else "Grid & snapping off — free movement"),
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+            ToolIcon(Icons.Rounded.FactCheck, true, desc = tr("تقييم التصميم", "Review design")) { state.selectedId = null; reviewing = true }
+            ToolIcon(Icons.Rounded.IosShare, !busy, desc = tr("تصدير", "Export")) { exporting = true }
         }
 
         // ------------------------------------------------------------- canvas
@@ -518,7 +575,7 @@ fun CanvasEditorScreen(id: String) {
                 .pointerInput(Unit) { detectTapGestures { state.selectedId = null } },
         ) {
             val fit = ((maxWidth.value - 40f) / state.design.w).coerceAtMost(2f)
-            val s = fit * zoom
+            val s = exportScale ?: (fit * zoom)
             val vs = rememberScrollState()
             val hs = rememberScrollState()
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
@@ -526,7 +583,10 @@ fun CanvasEditorScreen(id: String) {
                     Modifier.fillMaxSize().verticalScroll(vs).horizontalScroll(hs).padding(20.dp),
                     contentAlignment = Alignment.TopCenter,
                 ) {
-                    EditableCanvas(state, s, snap, layer, onDoubleTap = { tab = PanelTab.TEXT })
+                    EditableCanvas(
+                        state, s, snap, layer, onDoubleTap = { tab = PanelTab.TEXT; panelOpen = true },
+                        showGrid = snap && exportScale == null && !busy, transparent = exportTransparent,
+                    )
                 }
             }
             Row(
@@ -545,7 +605,22 @@ fun CanvasEditorScreen(id: String) {
             Modifier.fillMaxWidth().shadow(16.dp, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
                 .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)).background(c.surface).navigationBarsPadding(),
         ) {
+            // Drag handle: tap or swipe down to hide the panel and see the whole canvas.
+            Box(
+                Modifier.fillMaxWidth().height(22.dp)
+                    .clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { panelOpen = !panelOpen }
+                    .pointerInput(Unit) {
+                        var total = 0f
+                        detectVerticalDragGestures(
+                            onDragStart = { total = 0f },
+                            onDragEnd = { if (total > 30) panelOpen = false else if (total < -30) panelOpen = true },
+                        ) { change, dy -> change.consume(); total += dy }
+                    },
+                contentAlignment = Alignment.Center,
+            ) { Box(Modifier.width(44.dp).height(5.dp).clip(CircleShape).background(c.muted.copy(alpha = 0.45f))) }
             SelectionHeader(state)
+            AnimatedVisibility(panelOpen, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+            Column {
             if (!imeVisible) {
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     PanelTab.entries.forEach { t ->
@@ -565,15 +640,23 @@ fun CanvasEditorScreen(id: String) {
             AnimatedContent(tab, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "panel") { t ->
                 Column(Modifier.fillMaxWidth().height(if (imeVisible) 150.dp else 280.dp).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 10.dp)) {
                     when (t) {
-                        PanelTab.ADD -> AddPanel(state)
-                        PanelTab.STYLE -> StylePanel(state, pickPhoto)
+                        PanelTab.ADD -> AddPanel(state, onIcon = { pickingIcon = true })
+                        PanelTab.STYLE -> StylePanel(state, pickPhoto, onRemoveBg = { removeBackground(it) }, busy = busy)
                         PanelTab.TEXT -> ContentPanel(state, onPickIcon = { pickingIcon = true })
                         PanelTab.LAYOUT -> LayoutPanel(state)
                         PanelTab.LAYERS -> LayersPanel(state)
                     }
                 }
             }
+            }
+            }
         }
+    }
+
+    if (reviewing) ReviewSheet(state, onDismiss = { reviewing = false }, onShow = { id -> state.selectedId = id; reviewing = false })
+    if (exporting) ExportSheet(state.design, onDismiss = { exporting = false }) { w, transparent, jpeg, gallery ->
+        exporting = false
+        export(w, transparent, jpeg, gallery)
     }
 
     if (pickingIcon) {
@@ -599,13 +682,13 @@ fun CanvasEditorScreen(id: String) {
 }
 
 @Composable
-private fun ToolIcon(icon: ImageVector, enabled: Boolean, active: Boolean = false, onClick: () -> Unit) {
+private fun ToolIcon(icon: ImageVector, enabled: Boolean, active: Boolean = false, desc: String? = null, onClick: () -> Unit) {
     val c = Eyn.c
     Box(
         Modifier.size(36.dp).bounceClick(enabled, 0.88f, onClick).clip(RoundedCornerShape(12.dp))
             .background(if (active) c.lilac else c.surface).border(1.dp, c.outline, RoundedCornerShape(12.dp)),
         contentAlignment = Alignment.Center,
-    ) { Icon(icon, null, tint = if (!enabled) c.outline else if (active) c.onLilac else c.text, modifier = Modifier.size(18.dp)) }
+    ) { Icon(icon, desc, tint = if (!enabled) c.outline else if (active) c.onLilac else c.text, modifier = Modifier.size(18.dp)) }
 }
 
 @Composable
@@ -630,7 +713,10 @@ private fun snapAxis(pos: Float, size: Float, targets: List<Float>, threshold: F
 }
 
 @Composable
-private fun EditableCanvas(state: EditorState, s: Float, snap: Boolean, layer: GraphicsLayer, onDoubleTap: () -> Unit) {
+private fun EditableCanvas(
+    state: EditorState, s: Float, snap: Boolean, layer: GraphicsLayer, onDoubleTap: () -> Unit,
+    showGrid: Boolean = false, transparent: Boolean = false,
+) {
     val d = state.design
     val accent = Color(0xFF3B82F6)
     val guide = Color(0xFFEC4899)
@@ -643,9 +729,9 @@ private fun EditableCanvas(state: EditorState, s: Float, snap: Boolean, layer: G
             Modifier.fillMaxSize().drawWithContent {
                 layer.record { this@drawWithContent.drawContent() }
                 drawLayer(layer)
-            }.background(d.bg.c()).clipToBounds(),
+            }.then(if (transparent) Modifier else Modifier.background(d.bg.c())).clipToBounds(),
         ) {
-            if (d.bgImage.isNotEmpty()) PhotoImage(d.bgImage, 0, Modifier.fillMaxSize())
+            if (d.bgImage.isNotEmpty() && !transparent) PhotoImage(d.bgImage, 0, Modifier.fillMaxSize())
             d.els.forEach { e ->
                 RenderEl(
                     e, s,
@@ -690,6 +776,18 @@ private fun EditableCanvas(state: EditorState, s: Float, snap: Boolean, layer: G
                             }
                         },
                 )
+            }
+        }
+        // Snap grid (an overlay, so it is never exported)
+        if (showGrid) {
+            val gridColor = Color(0xFF3B82F6).copy(alpha = 0.10f)
+            androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                val unitPx = s.dp.toPx()
+                val step = if (8 * unitPx >= 10f) 8 else if (16 * unitPx >= 10f) 16 else 32
+                var x = 0f
+                while (x <= d.w) { drawLine(gridColor, androidx.compose.ui.geometry.Offset(x * unitPx, 0f), androidx.compose.ui.geometry.Offset(x * unitPx, size.height), 1f); x += step }
+                var y = 0f
+                while (y <= d.h) { drawLine(gridColor, androidx.compose.ui.geometry.Offset(0f, y * unitPx), androidx.compose.ui.geometry.Offset(size.width, y * unitPx), 1f); y += step }
             }
         }
         // Guides
@@ -749,7 +847,7 @@ private fun EditableCanvas(state: EditorState, s: Float, snap: Boolean, layer: G
 
 /** −/+ button that repeats (and speeds up) while held. */
 @Composable
-private fun RepeatButton(icon: ImageVector, onStep: () -> Unit) {
+fun RepeatButton(icon: ImageVector, onStep: () -> Unit) {
     val c = Eyn.c
     val step by rememberUpdatedState(onStep)
     Box(
@@ -775,7 +873,7 @@ private fun RepeatButton(icon: ImageVector, onStep: () -> Unit) {
 
 /** Precise numeric control: label, −, editable value, +, and an optional slider for coarse moves. */
 @Composable
-private fun NumStepper(
+fun NumStepper(
     label: String, value: Float, min: Float, max: Float, step: Float = 1f, suffix: String = "",
     slider: Boolean = true, onChange: (Float) -> Unit,
 ) {
@@ -884,7 +982,7 @@ private fun ActionChip(text: String, icon: ImageVector, enabled: Boolean = true,
 // ============================================================================ panels
 
 @Composable
-private fun AddPanel(state: EditorState) {
+private fun AddPanel(state: EditorState, onIcon: () -> Unit) {
     val c = Eyn.c
     val lang = LocalLang.current
     PanelLabel(tr("أضف عنصراً إلى اللوحة", "Add an element to the canvas"))
@@ -892,7 +990,7 @@ private fun AddPanel(state: EditorState) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(bottom = 10.dp)) {
             row.forEach { t ->
                 Column(
-                    Modifier.weight(1f).bounceClick { state.add(t, lang) }.clip(RoundedCornerShape(16.dp)).background(c.surfaceAlt).padding(vertical = 12.dp),
+                    Modifier.weight(1f).bounceClick { state.add(t, lang); if (t == ElType.ICON) onIcon() }.clip(RoundedCornerShape(16.dp)).background(c.surfaceAlt).padding(vertical = 12.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Icon(t.icon(), null, tint = c.primary, modifier = Modifier.size(24.dp))
@@ -912,7 +1010,7 @@ private fun NoSelection() {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun StylePanel(state: EditorState, pickPhoto: (String) -> Unit) {
+private fun StylePanel(state: EditorState, pickPhoto: (String) -> Unit, onRemoveBg: (String) -> Unit, busy: Boolean) {
     val e = state.selected
     if (e == null) {
         PanelLabel(tr("خلفية اللوحة", "Canvas background"))
@@ -972,7 +1070,18 @@ private fun StylePanel(state: EditorState, pickPhoto: (String) -> Unit) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             ActionChip(if (e.image.isEmpty()) tr("اختر صورة", "Pick photo") else tr("تغيير الصورة", "Change photo"), Icons.Rounded.AddPhotoAlternate) { pickPhoto(e.id) }
             if (e.image.isNotEmpty()) {
-                ActionChip(tr("إزالة", "Remove"), Icons.Rounded.Close) { state.updateEl(e.id) { it.copy(image = "") } }
+                ActionChip(tr("إزالة خلفية الصورة", "Remove photo background"), Icons.Rounded.AutoFixHigh, enabled = !busy) { onRemoveBg(e.id) }
+                ActionChip(tr("حذف الصورة", "Delete photo"), Icons.Rounded.Close) { state.updateEl(e.id) { it.copy(image = "", backImage = "") } }
+            }
+        }
+        if (e.image.isNotEmpty()) {
+            Text(
+                tr("بعد إزالة الخلفية اختر خلفية جديدة: لوناً من «التعبئة» أعلاه، أو تدرّجاً، أو صورة أخرى:", "After removing the background, pick a new one: a color from Fill above, a gradient, or another photo:"),
+                style = Type.small, color = Eyn.c.muted, modifier = Modifier.padding(top = 8.dp, bottom = 6.dp),
+            )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                ActionChip(if (e.backImage.isEmpty()) tr("صورة خلفية للعنصر", "Background photo") else tr("تغيير صورة الخلفية", "Change background photo"), Icons.Rounded.Wallpaper) { pickPhoto(BACK_PREFIX + e.id) }
+                if (e.backImage.isNotEmpty()) ActionChip(tr("إزالة صورة الخلفية", "Remove background photo"), Icons.Rounded.Close) { state.updateEl(e.id) { it.copy(backImage = "") } }
             }
         }
         if (e.image.isNotEmpty()) {
@@ -1055,7 +1164,7 @@ private fun ContentPanel(state: EditorState, onPickIcon: () -> Unit) {
         textStyle = Type.body.copy(color = c.text),
     )
     PanelLabel(tr("الخط", "Font"))
-    Segmented(CanvasFonts.map { it.first }, e.font, { i -> state.updateEl(e.id) { it.copy(font = i) } }, Modifier.fillMaxWidth())
+    FontPickerRow(e.font, { i -> state.updateEl(e.id) { it.copy(font = i) } }, sample = e.text.take(5).ifBlank { "أبجد Aa" })
     Spacer(Modifier.height(6.dp))
     NumStepper(tr("حجم الخط", "Font size"), e.fontSize, 6f, 160f) { v -> state.updateEl(e.id, "fs${e.id}") { it.copy(fontSize = v) } }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 6.dp)) {
@@ -1173,7 +1282,7 @@ private fun LayersPanel(state: EditorState) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun IconPickerSheet(current: String, onDismiss: () -> Unit, onPick: (String) -> Unit) {
+fun IconPickerSheet(current: String, onDismiss: () -> Unit, onPick: (String) -> Unit) {
     val c = Eyn.c
     val ctx = LocalContext.current
     var query by remember { mutableStateOf("") }

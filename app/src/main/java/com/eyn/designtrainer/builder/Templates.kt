@@ -13,6 +13,7 @@ enum class Kind(val label: L) {
     FOOTER(L("الفوتر", "Footers")),
     LOGIN(L("تسجيل الدخول", "Login")),
     LANDING(L("صفحات الهبوط", "Landing")),
+    LOGO(L("الشعارات", "Logos")),
 }
 
 /** Template element: like [El] but with bilingual text. Coordinates are authored left-to-right. */
@@ -238,6 +239,31 @@ val Templates: List<Template> = listOf(
     },
 )
 
+/** Logo starters (600×600) — refine them in the editor and export as transparent HD PNG. */
+val LogoTemplates: List<Template> = listOf(
+    t("logo_icon_text", Kind.LOGO, l("أيقونة + اسم", "Icon + name"), 600, 600, CREAM) {
+        box(60, 220, 160, 160, NAVY, 48)
+        icon(96, 256, 88, "visibility", WHITE)
+        txt(250, 240, 320, 90, l("عين", "Eyn"), 72, NAVY, true)
+        txt(250, 330, 320, 40, l("درّب عينك", "Train your eye"), 24, GRAY)
+    },
+    t("logo_badge", Kind.LOGO, l("شارة دائرية", "Round badge"), 600, 600, WHITE) {
+        circle(100, 100, 400, CORAL, WHITE, l("قهوتي", "Brew"), 72)
+        txt(100, 400, 400, 40, l("منذ 2026", "SINCE 2026"), 22, WHITE, true, 1)
+    },
+    t("logo_monogram", Kind.LOGO, l("حرف أول", "Monogram"), 600, 600, CREAM) {
+        box(150, 110, 300, 300, CLEAR, 150, 10, NAVY)
+        txt(150, 110, 300, 300, l("ح", "H"), 170, NAVY, true, 1)
+        txt(60, 440, 480, 60, l("حميد للتصميم", "HAMID STUDIO"), 34, NAVY, true, 1)
+    },
+    t("logo_stacked", Kind.LOGO, l("أيقونة فوق الاسم", "Stacked"), 600, 600, NAVY) {
+        icon(225, 120, 150, "local_cafe", CORAL)
+        txt(60, 300, 480, 100, l("بُنّ", "BEAN"), 84, WHITE, true, 1)
+        line(220, 420, 160, CORAL)
+        txt(60, 440, 480, 40, l("محمصة مختصة", "SPECIALTY ROASTERS"), 22, SOFT, align = 1)
+    },
+)
+
 /** Builds an editable design. Arabic mirrors the layout horizontally so it reads right-to-left. */
 fun Template.toDesign(lang: Lang): Design {
     val rtl = lang == Lang.AR
@@ -263,3 +289,36 @@ fun blankDesign(lang: Lang, w: Float = 360f, h: Float = 640f) = Design(
     name = if (lang == Lang.AR) "تصميم جديد" else "New design",
     kind = "BLANK", w = w, h = h, bg = WHITE, els = emptyList(),
 )
+
+/** Turns the project's identity into an editable canvas so the logo can be refined and exported in HD. */
+fun logoDesign(p: com.eyn.designtrainer.data.AppProject, lang: Lang): Design {
+    val pal = p.colors()
+    val font = if (p.logoFont >= 0) p.logoFont else when (p.font) { 0 -> 2; 1 -> 1; else -> 0 }
+    val stacked = p.logoLayout == 1 || p.logoStyle == 2
+    val els = mutableListOf<El>()
+    val mark = 160f
+    val markX = if (stacked) 220f else 60f
+    val markY = if (stacked) 110f else 220f
+    if (p.logoStyle != 2) {
+        els += El(
+            type = if (p.logoShape == 1) ElType.CIRCLE else ElType.BOX, x = markX, y = markY, w = mark, h = mark,
+            bg = if (p.logoShape == 2) CLEAR else pal.primary, radius = if (p.logoShape == 0) 48f else 0f,
+        )
+        val onMark = if (p.logoShape == 2) pal.primary else WHITE
+        els += if (p.logoStyle == 0) El(type = ElType.ICON, x = markX + 36, y = markY + 36, w = 88f, h = 88f, fg = onMark, icon = p.logoIcon)
+        else El(type = ElType.TEXT, x = markX, y = markY, w = mark, h = mark, text = p.name.trim().take(1), fg = onMark, fontSize = 80f, bold = true, align = 1, font = font)
+    }
+    val textX = if (stacked) 40f else markX + mark + 30f
+    val textW = if (stacked) 520f else 600f - textX - 30f
+    val textY = if (stacked) (if (p.logoStyle == 2) 220f else 300f) else 240f
+    val align = if (stacked) 1 else if (lang == Lang.AR) 2 else 0
+    els += El(
+        type = ElType.TEXT, x = textX, y = textY, w = textW, h = 90f, text = p.name, fg = pal.primary,
+        fontSize = 64f * p.logoScale, bold = true, align = align, font = font, letterSpacing = p.logoSpacing,
+    )
+    if (p.tagline.isNotBlank()) els += El(
+        type = ElType.TEXT, x = textX, y = textY + 90f, w = textW, h = 40f, text = p.tagline, fg = pal.ink,
+        fontSize = 24f, align = align, font = font, opacity = 0.7f,
+    )
+    return Design(name = (if (lang == Lang.AR) "شعار " else "Logo ") + p.name, kind = "LOGO", w = 600f, h = 600f, bg = pal.surface, els = els)
+}

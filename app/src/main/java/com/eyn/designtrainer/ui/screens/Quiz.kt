@@ -144,7 +144,20 @@ fun QuizScreen(mode: String) {
             )
             Phase.RESULT -> ResultView(
                 right = right, total = questions.size, lessonMode = mode.startsWith("lesson:"),
-                onHome = { nav.popBackStack() },
+                nextLesson = mode.removePrefix("lesson:").let { id ->
+                    val i = Content.lessons.indexOfFirst { it.id == id }
+                    if (mode.startsWith("lesson:") && i >= 0) Content.lessons.getOrNull(i + 1) else null
+                },
+                onNext = { next ->
+                    // Leave the quiz and the finished lesson, then open the next one.
+                    nav.popBackStack()
+                    if (nav.currentBackStackEntry?.destination?.route == "lesson/{id}") nav.popBackStack()
+                    nav.navigate(Routes.lesson(next.id))
+                },
+                onHome = {
+                    nav.popBackStack()
+                    if (mode.startsWith("lesson:") && right * 2 >= questions.size && nav.currentBackStackEntry?.destination?.route == "lesson/{id}") nav.popBackStack()
+                },
                 onRetry = { index = 0; selected = -1; right = 0; run = 0; phase = Phase.ASK },
             )
         }
@@ -288,7 +301,10 @@ private fun ExplainView(q: Question, chosen: Int, run: Int, last: Boolean, onLes
 }
 
 @Composable
-private fun ResultView(right: Int, total: Int, lessonMode: Boolean, onHome: () -> Unit, onRetry: () -> Unit) {
+private fun ResultView(
+    right: Int, total: Int, lessonMode: Boolean, nextLesson: com.eyn.designtrainer.data.Lesson?,
+    onNext: (com.eyn.designtrainer.data.Lesson) -> Unit, onHome: () -> Unit, onRetry: () -> Unit,
+) {
     val c = Eyn.c
     val pop = remember { Animatable(0.3f) }
     LaunchedEffect(Unit) { pop.animateTo(1f, spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessLow)) }
@@ -321,8 +337,22 @@ private fun ResultView(right: Int, total: Int, lessonMode: Boolean, onHome: () -
             style = Type.body, color = c.muted, textAlign = TextAlign.Center,
         )
         Spacer(Modifier.weight(1f))
-        PrimaryButton(tr("متابعة", "Continue"), onClick = onHome)
-        Spacer(Modifier.height(10.dp))
-        OutlineButton(tr("أعد المحاولة", "Try again"), onClick = onRetry)
+        when {
+            lessonMode && passed && nextLesson != null -> {
+                PrimaryButton(tr("الدرس التالي: ", "Next lesson: ") + nextLesson.title.t(), icon = Icons.AutoMirrored.Rounded.ArrowForward) { onNext(nextLesson) }
+                Spacer(Modifier.height(10.dp))
+                OutlineButton(tr("العودة إلى الدروس", "Back to lessons"), onClick = onHome)
+            }
+            lessonMode && !passed -> {
+                PrimaryButton(tr("أعد المحاولة", "Try again"), onClick = onRetry)
+                Spacer(Modifier.height(10.dp))
+                OutlineButton(tr("راجع الدرس", "Review the lesson"), onClick = onHome)
+            }
+            else -> {
+                PrimaryButton(if (lessonMode) tr("🎉 أنهيت المسار! العودة للدروس", "🎉 Path complete! Back to lessons") else tr("متابعة", "Continue"), onClick = onHome)
+                Spacer(Modifier.height(10.dp))
+                OutlineButton(tr("أعد المحاولة", "Try again"), onClick = onRetry)
+            }
+        }
     }
 }

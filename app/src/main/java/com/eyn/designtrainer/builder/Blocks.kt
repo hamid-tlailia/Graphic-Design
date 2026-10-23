@@ -43,6 +43,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
@@ -63,6 +64,7 @@ import com.eyn.designtrainer.i18n.L
 import com.eyn.designtrainer.i18n.Lang
 import com.eyn.designtrainer.i18n.LocalLang
 import com.eyn.designtrainer.ui.theme.Cairo
+import com.eyn.designtrainer.ui.theme.fontAt
 import com.eyn.designtrainer.ui.theme.Plex
 import com.eyn.designtrainer.ui.theme.Tajawal
 import kotlin.math.roundToInt
@@ -89,8 +91,13 @@ data class PTheme(
     val onPrimary: Color get() = if (primary.luminance() > 0.55f) ink else Color.White
 }
 
+/** The project's palette: a preset, or the colours the user built (palette = -1). */
+fun AppProject.colors(): AppPalette =
+    if (palette < 0 && customColors.size >= 5) AppPalette(L("مخصص", "Custom"), customColors[0], customColors[1], customColors[2], customColors[3], customColors[4])
+    else Palettes[palette.coerceIn(Palettes.indices)]
+
 fun AppProject.theme(): PTheme {
-    val p = if (applyIdentity) Palettes[palette.coerceIn(Palettes.indices)] else Palettes[1]
+    val p = if (applyIdentity) colors() else Palettes[1]
     val font = if (applyIdentity) ProjectFonts[font.coerceIn(ProjectFonts.indices)].second else Plex
     return PTheme(p.primary.c(), p.surface.c(), p.accent.c(), p.bg.c(), p.ink.c(), p.ink.c().copy(alpha = 0.55f), Color.White, font)
 }
@@ -98,21 +105,35 @@ fun AppProject.theme(): PTheme {
 @Composable
 fun LogoMark(p: AppProject, size: Dp = 40.dp, showName: Boolean = true) {
     val t = p.theme()
-    val icon = CanvasIcons[p.logoIcon] ?: Icons.Rounded.Star
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        when (p.logoStyle) {
-            0 -> Box(Modifier.size(size).clip(RoundedCornerShape(size * 0.3f)).background(t.primary), contentAlignment = Alignment.Center) {
-                Icon(icon, null, tint = t.onPrimary, modifier = Modifier.size(size * 0.55f))
-            }
-            1 -> Box(Modifier.size(size).clip(CircleShape).background(t.primary), contentAlignment = Alignment.Center) {
-                Text(p.name.trim().take(1).ifEmpty { "?" }, color = t.onPrimary, fontFamily = t.font, fontWeight = FontWeight.Bold, fontSize = (size.value * 0.45f).sp)
-            }
-            else -> {}
+    val logoFamily = if (p.logoFont >= 0) fontAt(p.logoFont) else t.font
+    val scale = p.logoScale
+    val markShape = if (p.logoShape == 1) CircleShape else RoundedCornerShape(size * 0.3f)
+    val onMark = if (p.logoShape == 2) t.primary else t.onPrimary
+    val mark: @Composable () -> Unit = {
+        if (p.logoStyle != 2) Box(
+            Modifier.size(size).clip(markShape).background(if (p.logoShape == 2) Color.Transparent else t.primary),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (p.logoStyle == 0) FontIcon(p.logoIcon, onMark, size.value * (if (p.logoShape == 2) 0.9f else 0.58f))
+            else Text(p.name.trim().take(1).ifEmpty { "?" }, color = onMark, fontFamily = logoFamily, fontWeight = FontWeight.Bold, fontSize = (size.value * 0.45f).sp)
         }
-        if (showName || p.logoStyle == 2) {
-            if (p.logoStyle != 2) Spacer(Modifier.width(size * 0.25f))
-            Text(p.name, color = t.primary, fontFamily = t.font, fontWeight = FontWeight.Bold, fontSize = (size.value * (if (p.logoStyle == 2) 0.7f else 0.5f)).sp, maxLines = 1)
+    }
+    val stacked = p.logoLayout == 1
+    val name: @Composable () -> Unit = {
+        Column(horizontalAlignment = if (stacked) Alignment.CenterHorizontally else Alignment.Start) {
+            Text(
+                p.name, color = t.primary, fontFamily = logoFamily, fontWeight = FontWeight.Bold, maxLines = 1,
+                fontSize = (size.value * (if (p.logoStyle == 2) 0.7f else 0.5f) * scale).sp, letterSpacing = p.logoSpacing.sp,
+            )
+            if (p.tagline.isNotBlank()) Text(p.tagline, color = t.muted, fontFamily = logoFamily, fontSize = (size.value * 0.2f * scale).sp, maxLines = 1)
         }
+    }
+    if (stacked) Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        mark()
+        if (showName || p.logoStyle == 2) { if (p.logoStyle != 2) Spacer(Modifier.height(size * 0.2f)); name() }
+    } else Row(verticalAlignment = Alignment.CenterVertically) {
+        mark()
+        if (showName || p.logoStyle == 2) { if (p.logoStyle != 2) Spacer(Modifier.width(size * 0.25f)); name() }
     }
 }
 
@@ -186,6 +207,7 @@ fun defaultBlock(kind: BlockKind, variant: Int, p: AppProject, lang: Lang): Bloc
         BlockKind.FOOTER -> Block(
             kind = kind, variant = variant, title = p.name,
             subtitle = s("© 2026 جميع الحقوق محفوظة", "© 2026 All rights reserved"), padding = if (variant == 0) 8f else 16f,
+            pinBottom = true,
         )
     }
 }
@@ -214,9 +236,10 @@ private fun PText(
 )
 
 @Composable
-private fun Placeholder(t: PTheme, modifier: Modifier, radius: Dp = 12.dp) {
+private fun Placeholder(t: PTheme, modifier: Modifier, radius: Dp = 12.dp, image: String = "") {
     Box(modifier.clip(RoundedCornerShape(radius)).background(t.surface), contentAlignment = Alignment.Center) {
-        Icon(Icons.Rounded.Image, null, tint = t.primary.copy(alpha = 0.35f), modifier = Modifier.size(22.dp))
+        if (image.isNotEmpty()) PhotoImage(image, 0, Modifier.matchParentSize())
+        else Icon(Icons.Rounded.Image, null, tint = t.primary.copy(alpha = 0.35f), modifier = Modifier.size(22.dp))
     }
 }
 
@@ -225,6 +248,15 @@ private val sampleItems = listOf(L("كلاسيك", "Classic"), L("مميّز", "
 /** Renders one block with the project's identity. Width comes from the caller. */
 @Composable
 fun BlockView(b: Block, p: AppProject, modifier: Modifier = Modifier) {
+    val d = LocalDensity.current
+    // Text size control: scale fonts inside this block only.
+    CompositionLocalProvider(LocalDensity provides Density(d.density, d.fontScale * b.textScale)) {
+        BlockContent(b, p, modifier.heightIn(min = b.minHeight.dp))
+    }
+}
+
+@Composable
+private fun BlockContent(b: Block, p: AppProject, modifier: Modifier) {
     val t = p.theme()
     val lang = LocalLang.current
     val pad = b.padding.dp
@@ -298,18 +330,22 @@ fun BlockView(b: Block, p: AppProject, modifier: Modifier = Modifier) {
                             HeroButton(b.button, t)
                         }
                         Spacer(Modifier.width(12.dp))
-                        Placeholder(t.copy(surface = Color.White.copy(alpha = 0.6f)), Modifier.size(96.dp), r * 0.7f)
+                        Placeholder(t.copy(surface = Color.White.copy(alpha = 0.6f)), Modifier.size(96.dp), r * 0.7f, b.image)
                     }
-                    else -> Column(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(r)).background(heroBg).padding(horizontal = 18.dp, vertical = 22.dp),
-                        horizontalAlignment = hAlign,
-                    ) {
-                        PText(b.title, t, 20, onHero, bold = true, align = ta, modifier = Modifier.fillMaxWidth())
-                        Spacer(Modifier.height(6.dp))
-                        PText(b.subtitle, t, 13, onHero.copy(alpha = 0.7f), align = ta, modifier = Modifier.fillMaxWidth())
-                        if (b.button.isNotBlank()) {
-                            Spacer(Modifier.height(14.dp))
-                            HeroButton(b.button, t, inverted = b.variant == 2)
+                    else -> Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(r)).background(heroBg)) {
+                        val onPhoto = if (b.image.isNotEmpty()) Color.White else onHero
+                        if (b.image.isNotEmpty()) {
+                            PhotoImage(b.image, 0, Modifier.matchParentSize())
+                            Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.38f)))
+                        }
+                        Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 22.dp), horizontalAlignment = hAlign) {
+                            PText(b.title, t, 20, onPhoto, bold = true, align = ta, modifier = Modifier.fillMaxWidth())
+                            Spacer(Modifier.height(6.dp))
+                            PText(b.subtitle, t, 13, onPhoto.copy(alpha = 0.75f), align = ta, modifier = Modifier.fillMaxWidth())
+                            if (b.button.isNotBlank()) {
+                                Spacer(Modifier.height(14.dp))
+                                HeroButton(b.button, t, inverted = b.variant == 2)
+                            }
                         }
                     }
                 }
@@ -363,7 +399,7 @@ fun BlockView(b: Block, p: AppProject, modifier: Modifier = Modifier) {
                 0 -> Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     listOf(0, 1).forEach { i ->
                         Column(Modifier.weight(1f).clip(RoundedCornerShape(r)).background(t.card).padding(10.dp)) {
-                            Placeholder(t, Modifier.fillMaxWidth().aspectRatio(1.3f), r * 0.7f)
+                            Placeholder(t, Modifier.fillMaxWidth().aspectRatio(1.3f), r * 0.7f, b.image)
                             Spacer(Modifier.height(8.dp))
                             PText(sampleItems[i].get(lang), t, 14, bold = true, maxLines = 1)
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -378,7 +414,7 @@ fun BlockView(b: Block, p: AppProject, modifier: Modifier = Modifier) {
                 1 -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     listOf(0, 1).forEach { i ->
                         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(r)).background(t.card).padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Placeholder(t, Modifier.size(56.dp), r * 0.6f)
+                            Placeholder(t, Modifier.size(56.dp), r * 0.6f, b.image)
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
                                 PText(sampleItems[i + 2].get(lang), t, 14, bold = true)
@@ -389,7 +425,7 @@ fun BlockView(b: Block, p: AppProject, modifier: Modifier = Modifier) {
                     }
                 }
                 else -> Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(r)).background(t.card)) {
-                    Placeholder(t, Modifier.fillMaxWidth().height(130.dp), 0.dp)
+                    Placeholder(t, Modifier.fillMaxWidth().height(130.dp), 0.dp, b.image)
                     Column(Modifier.padding(14.dp), horizontalAlignment = hAlign) {
                         PText(sampleItems[1].get(lang), t, 16, bold = true, align = ta)
                         PText("4.9 ★ · 24 ${b.subtitle}", t, 13, t.muted, align = ta)
@@ -504,12 +540,30 @@ private fun HeroButton(text: String, t: PTheme, inverted: Boolean = false) {
     )
 }
 
-/** A full page: stacked blocks on the project background. */
+/** A full page: blocks stacked on the project background; pinned blocks sit at the bottom. */
 @Composable
-fun PageView(page: Page, p: AppProject, modifier: Modifier = Modifier, minHeight: Dp = 0.dp) {
+fun PageView(page: Page, p: AppProject, modifier: Modifier = Modifier, minHeight: Dp = page.height.dp) {
     val t = p.theme()
-    Column(modifier.fillMaxWidth().heightIn(min = minHeight).background(t.bg).padding(vertical = 4.dp)) {
-        page.blocks.forEach { BlockView(it, p) }
+    PinnedColumn(
+        minHeight, modifier.fillMaxWidth().background(t.bg),
+        top = { page.blocks.filter { !it.pinBottom }.forEach { BlockView(it, p) } },
+        bottom = { page.blocks.filter { it.pinBottom }.forEach { BlockView(it, p) } },
+    )
+}
+
+/** Column whose [bottom] group is pushed to the bottom edge, with at least [minHeight] of height. */
+@Composable
+fun PinnedColumn(minHeight: Dp, modifier: Modifier, top: @Composable ColumnScope.() -> Unit, bottom: @Composable ColumnScope.() -> Unit) {
+    Layout(contents = listOf({ Column(content = top) }, { Column(content = bottom) }), modifier = modifier) { (tm, bm), c ->
+        val w = if (c.hasBoundedWidth) c.maxWidth else c.minWidth
+        val child = Constraints(minWidth = w, maxWidth = w)
+        val tp = tm.first().measure(child)
+        val bp = bm.first().measure(child)
+        val h = maxOf(minHeight.roundToPx(), tp.height + bp.height, c.minHeight)
+        layout(w, h) {
+            tp.place(0, 0)
+            bp.place(0, h - bp.height)
+        }
     }
 }
 

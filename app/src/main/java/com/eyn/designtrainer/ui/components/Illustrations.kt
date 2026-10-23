@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -146,6 +147,59 @@ fun LessonIllustration(ill: Ill, modifier: Modifier = Modifier) {
                 Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(4.dp).clip(CircleShape).background(c.onLilac))
                 Box(Modifier.align(Alignment.BottomStart).offset(x = 20.dp, y = (-4).dp).size((90 * g + 1).dp).clip(RoundedCornerShape(16.dp)).background(c.onLilac.copy(alpha = 0.25f)))
                 Box(Modifier.align(Alignment.BottomEnd).offset(x = (-36).dp, y = (-4).dp).size((44 * g + 1).dp).clip(CircleShape).background(c.accent))
+            }
+            Ill.ELEMENTS -> Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size((14 * g + 1).dp).clip(CircleShape).background(c.onLilac))
+                Box(Modifier.width((60 * g + 1).dp).height(4.dp).clip(CircleShape).background(c.onLilac))
+                Box(Modifier.size((52 * g + 1).dp).clip(RoundedCornerShape(10.dp)).background(c.accent))
+                Box(Modifier.size((52 * g + 1).dp).clip(CircleShape).border(4.dp, c.onLilac, CircleShape))
+            }
+            Ill.WHEEL -> androidx.compose.foundation.Canvas(Modifier.size(150.dp)) {
+                val colors = listOf(0xFFE53935, 0xFFFB8C00, 0xFFFDD835, 0xFF7CB342, 0xFF00897B, 0xFF1E88E5, 0xFF3949AB, 0xFF8E24AA)
+                val sweep = 360f / colors.size
+                colors.forEachIndexed { i, col ->
+                    drawArc(Color(col.toInt()), -90f + i * sweep, sweep * g, true)
+                }
+                drawCircle(c.lilac, radius = size.minDimension * 0.22f)
+            }
+            Ill.COLUMNS -> Row(Modifier.size(260.dp, 130.dp).padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                repeat(4) { i ->
+                    Box(Modifier.weight(1f).fillMaxHeight((0.5f + 0.5f * g).coerceAtMost(1f)).clip(RoundedCornerShape(6.dp)).background(if (i == 0) c.accent.copy(alpha = 0.6f) else c.accent.copy(alpha = 0.18f)))
+                }
+            }
+            Ill.UI_KIT -> Column(Modifier.width(230.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(Modifier.fillMaxWidth(g).height(40.dp).clip(RoundedCornerShape(12.dp)).background(c.surface).border(1.dp, c.outline, RoundedCornerShape(12.dp)))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Box(Modifier.weight(1f).height(40.dp).clip(RoundedCornerShape(12.dp)).background(c.onLilac))
+                    Box(Modifier.weight(1f).height(40.dp).clip(RoundedCornerShape(12.dp)).border(2.dp, c.onLilac, RoundedCornerShape(12.dp)))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.width(44.dp).height(24.dp).clip(CircleShape).background(c.accent))
+                    repeat(3) { Box(Modifier.size(24.dp).clip(RoundedCornerShape(6.dp)).background(c.onLilac.copy(alpha = 0.25f))) }
+                }
+            }
+            Ill.VECTOR -> Row(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalAlignment = Alignment.CenterVertically) {
+                // Raster: a blocky pixel circle. Vector: a smooth one.
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    val rows = listOf("0110", "1111", "1111", "0110")
+                    rows.forEach { r -> Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) { r.forEach { ch -> Box(Modifier.size(22.dp).background(if (ch == '1') c.onLilac else Color.Transparent)) } } }
+                }
+                Box(Modifier.size((96 * g + 1).dp).clip(CircleShape).background(c.accent))
+            }
+            Ill.LOGO_TYPES -> Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Eyn", fontFamily = Plex, fontWeight = FontWeight.Bold, fontSize = 30.sp, color = c.onLilac.copy(alpha = g))
+                Box(Modifier.size(54.dp).clip(CircleShape).background(c.onLilac), contentAlignment = Alignment.Center) {
+                    Text("ع", fontFamily = Plex, fontWeight = FontWeight.Bold, fontSize = 26.sp, color = c.lilac)
+                }
+                Box(Modifier.size(54.dp).clip(RoundedCornerShape(16.dp)).background(c.accent), contentAlignment = Alignment.Center) {
+                    EyeLogo(Modifier.size(36.dp, 24.dp), stroke = Color.White, iris = c.onLilac)
+                }
+            }
+            Ill.PRINT_MARKS -> Box(Modifier.size(200.dp, 140.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(200.dp, 140.dp).border(2.dp, c.accent.copy(alpha = 0.6f), RoundedCornerShape(2.dp)))
+                Box(Modifier.size(176.dp, 116.dp).clip(RoundedCornerShape(2.dp)).background(c.surface))
+                Box(Modifier.size((150 * g + 1).dp, (90 * g + 1).dp).border(1.dp, c.onLilac.copy(alpha = 0.4f), RoundedCornerShape(2.dp)))
+                Text("3 mm", style = Type.small, color = c.accent, modifier = Modifier.align(Alignment.TopEnd).padding(4.dp))
             }
         }
     }

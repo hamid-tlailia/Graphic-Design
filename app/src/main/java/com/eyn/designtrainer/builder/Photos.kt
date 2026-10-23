@@ -20,7 +20,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import com.google.android.gms.common.moduleinstall.ModuleInstall
+import com.google.android.gms.common.moduleinstall.ModuleInstallRequest
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.segmentation.subject.SubjectSegmentation
+import com.google.mlkit.vision.segmentation.subject.SubjectSegmenterOptions
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.UUID
@@ -69,6 +75,38 @@ object Photos {
         } ?: 0f
         return if (rotation == 0f) bmp
         else Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, Matrix().apply { postRotate(rotation) }, true)
+    }
+
+    sealed interface CutResult {
+        data class Done(val path: String) : CutResult
+        /** The on-device model is being downloaded by Google Play services; try again shortly. */
+        data object Downloading : CutResult
+        data class Failed(val message: String?) : CutResult
+    }
+
+    /**
+     * Cuts the main subject out of the photo (transparent background) with ML Kit subject
+     * segmentation, which runs on-device. Saves a PNG next to the original.
+     */
+    suspend fun removeBackground(ctx: Context, path: String): CutResult = withContext(Dispatchers.Default) {
+        val segmenter = SubjectSegmentation.getClient(SubjectSegmenterOptions.Builder().enableForegroundBitmap().build())
+        try {
+            val src = BitmapFactory.decodeFile(path) ?: return@withContext CutResult.Failed(null)
+            val result = segmenter.process(InputImage.fromBitmap(src, 0)).await()
+            val fg = result.foregroundBitmap ?: return@withContext CutResult.Failed(null)
+            val f = File(File(ctx.filesDir, "images").apply { mkdirs() }, UUID.randomUUID().toString() + ".png")
+            withContext(Dispatchers.IO) { f.outputStream().use { fg.compress(Bitmap.CompressFormat.PNG, 100, it) } }
+            CutResult.Done(f.absolutePath)
+        } catch (e: Exception) {
+            val msg = e.message.orEmpty()
+            if (msg.contains("download", true) || msg.contains("module", true)) {
+                // Ask Play services to fetch the optional module, then the user retries.
+                runCatching { ModuleInstall.getClient(ctx).installModules(ModuleInstallRequest.newBuilder().addApi(segmenter).build()) }
+                CutResult.Downloading
+            } else CutResult.Failed(msg)
+        } finally {
+            segmenter.close()
+        }
     }
 
     suspend fun load(path: String): ImageBitmap? = cache.get(path) ?: withContext(Dispatchers.IO) {

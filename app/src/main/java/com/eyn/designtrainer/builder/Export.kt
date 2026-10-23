@@ -25,6 +25,13 @@ object Exporter {
     fun png(ctx: Context, bmp: Bitmap, name: String): File =
         File(dir(ctx), safe(name) + ".png").apply { outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) } }
 
+    fun jpg(ctx: Context, bmp: Bitmap, name: String): File {
+        // JPEG has no alpha: flatten onto white first.
+        val flat = Bitmap.createBitmap(bmp.width, bmp.height, Bitmap.Config.ARGB_8888)
+        android.graphics.Canvas(flat).apply { drawColor(android.graphics.Color.WHITE); drawBitmap(bmp, 0f, 0f, null) }
+        return File(dir(ctx), safe(name) + ".jpg").apply { outputStream().use { flat.compress(Bitmap.CompressFormat.JPEG, 95, it) } }
+    }
+
     fun pdf(ctx: Context, pages: List<Bitmap>, name: String): File {
         val doc = PdfDocument()
         pages.forEachIndexed { i, b ->
@@ -53,14 +60,20 @@ object Exporter {
     }
 
     /** Writes into Pictures/Eyn. Needs no permission on Android 10+. */
-    fun saveToGallery(ctx: Context, bmp: Bitmap, name: String): Boolean {
+    fun saveToGallery(ctx: Context, bmp: Bitmap, name: String, jpeg: Boolean = false): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
         val values = ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, safe(name) + "_" + System.currentTimeMillis() + ".png")
-            put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+            put(MediaStore.Images.Media.DISPLAY_NAME, safe(name) + "_" + System.currentTimeMillis() + if (jpeg) ".jpg" else ".png")
+            put(MediaStore.Images.Media.MIME_TYPE, if (jpeg) "image/jpeg" else "image/png")
             put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Eyn")
         }
         val uri = ctx.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: return false
-        return ctx.contentResolver.openOutputStream(uri)?.use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) } ?: false
+        return ctx.contentResolver.openOutputStream(uri)?.use {
+            if (jpeg) {
+                val flat = Bitmap.createBitmap(bmp.width, bmp.height, Bitmap.Config.ARGB_8888)
+                android.graphics.Canvas(flat).apply { drawColor(android.graphics.Color.WHITE); drawBitmap(bmp, 0f, 0f, null) }
+                flat.compress(Bitmap.CompressFormat.JPEG, 95, it)
+            } else bmp.compress(Bitmap.CompressFormat.PNG, 100, it)
+        } ?: false
     }
 }

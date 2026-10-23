@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import com.eyn.designtrainer.builder.DesignThumb
 import com.eyn.designtrainer.builder.Kind
 import com.eyn.designtrainer.builder.LogoMark
+import com.eyn.designtrainer.builder.LogoTemplates
 import com.eyn.designtrainer.builder.PageView
 import com.eyn.designtrainer.builder.Scaled
 import com.eyn.designtrainer.builder.Templates
@@ -151,7 +152,7 @@ fun StudioScreen() {
         }
         val kinds = listOf<Kind?>(null) + Kind.entries
         ChipRow(kinds.map { it?.label?.t() ?: tr("الكل", "All") }, kind, { kind = it }, Modifier.padding(bottom = 12.dp))
-        val list = Templates.filter { kinds[kind] == null || it.kind == kinds[kind] }
+        val list = (Templates + LogoTemplates).filter { kinds[kind] == null || it.kind == kinds[kind] }
         Column(Modifier.padding(horizontal = 20.dp)) {
             val tiles: List<Any?> = (if (kinds[kind] == null) listOf<Any?>(null) else emptyList()) + list
             tiles.chunked(2).forEach { row ->

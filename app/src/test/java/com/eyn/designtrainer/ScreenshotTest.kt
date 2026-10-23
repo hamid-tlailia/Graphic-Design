@@ -3,6 +3,8 @@ package com.eyn.designtrainer
 import android.app.Application
 import android.graphics.Bitmap
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import android.graphics.Canvas
@@ -14,6 +16,7 @@ import com.eyn.designtrainer.data.Design
 import com.eyn.designtrainer.data.ElType
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.onNodeWithContentDescription
 import com.eyn.designtrainer.builder.starterPage
 import com.eyn.designtrainer.builder.toDesign
 import com.eyn.designtrainer.data.AppData
@@ -76,8 +79,14 @@ class ScreenshotTest {
 
     private fun shot(name: String, route: String, lang: Lang = Lang.AR, dark: Boolean = false, d: AppData = data(lang), actions: () -> Unit = {}) {
         val vm = AppViewModel(ApplicationProvider.getApplicationContext<Application>())
+        // Wait for the ViewModel's initial load, then seed it so edits made in the UI are visible.
+        repeat(200) {
+            if (vm.data.value == null) { org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle(); Thread.sleep(10) }
+        }
+        vm.update { d }
         rule.setContent {
-            CompositionLocalProvider(LocalData provides d, LocalVm provides vm) {
+            val live by vm.data.collectAsState()
+            CompositionLocalProvider(LocalData provides (live ?: d), LocalVm provides vm) {
                 EynTheme(dark, lang) { AppNav(dark, startOverride = route) }
             }
         }
@@ -112,9 +121,20 @@ class ScreenshotTest {
     @Test fun s20_home_dark() = shot("20_home_dark", Routes.HOME, dark = true)
     @Test fun s21_home_en() = shot("21_home_en", Routes.HOME, lang = Lang.EN)
     @Test fun s22_canvas_en_dark() = shot("22_canvas_en_dark", Routes.canvas("d1"), lang = Lang.EN, dark = true)
+    /** With the clock paused, force a layout pass so semantics reflect the latest composition. */
+    private fun settle() {
+        repeat(6) { rule.mainClock.advanceTimeBy(100) }
+        rule.runOnUiThread {
+            val v = rule.activity.window.decorView
+            v.measure(android.view.View.MeasureSpec.makeMeasureSpec(v.width, android.view.View.MeasureSpec.EXACTLY), android.view.View.MeasureSpec.makeMeasureSpec(v.height, android.view.View.MeasureSpec.EXACTLY))
+            v.layout(0, 0, v.width, v.height)
+        }
+        repeat(2) { rule.mainClock.advanceTimeBy(100) }
+    }
+
     private fun click(text: String) {
         rule.onAllNodesWithText(text, substring = true)[0].performClick()
-        repeat(6) { rule.mainClock.advanceTimeBy(100) }
+        settle()
     }
 
     @Test fun s24_canvas_all_types() = shot("24_canvas_all_types", Routes.canvas("d2"))
@@ -122,5 +142,20 @@ class ScreenshotTest {
     @Test fun s26_canvas_style() = shot("26_canvas_style", Routes.canvas("d2")) { click("بطاقة"); click("الألوان") }
     @Test fun s27_canvas_content() = shot("27_canvas_content", Routes.canvas("d1")) { click("مرحباً بعودتك"); click("المحتوى") }
     @Test fun s28_canvas_value() = shot("28_canvas_value", Routes.canvas("d2")) { click("تذكرني"); click("المحتوى") }
+    @Test fun s29_path() = shot("29_path", Routes.LESSONS)
+    @Test fun s30_drill() = shot("30_drill", Routes.SPACING) { click("تحقّق من التصميم") }
+    @Test fun s31_review() = shot("31_review", Routes.canvas("d1")) {
+        rule.onNodeWithContentDescription("تقييم التصميم").performClick(); repeat(10) { rule.mainClock.advanceTimeBy(100) }
+    }
+    @Test fun s32_export() = shot("32_export", Routes.canvas("d1")) {
+        rule.onNodeWithContentDescription("تصدير").performClick(); repeat(10) { rule.mainClock.advanceTimeBy(100) }
+    }
+    @Test fun s33_build_moved() = shot("33_build_moved", Routes.build("p1")) {
+        click("عرض خاص")
+        rule.onAllNodesWithText("أسفل", useUnmergedTree = true)[0].performClick()
+        settle()
+    }
+    @Test fun s34_identity_custom() = shot("34_identity_custom", Routes.identity("p1")) { click("ألواني") }
+    @Test fun s35_studio_logos() = shot("35_studio_logos", Routes.STUDIO) { click("الشعارات") }
     @Test fun s23_build_dark() = shot("23_build_dark", Routes.build("p1"), dark = true)
 }

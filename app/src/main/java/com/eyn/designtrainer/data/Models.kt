@@ -76,6 +76,7 @@ data class El(
     val bg2: Long? = null,      // gradient end colour
     val gradDir: Int = 0,       // 0 vertical, 1 horizontal, 2 diagonal
     val image: String = "",     // absolute path of an imported photo
+    val backImage: String = "", // photo shown behind [image] (e.g. after background removal)
     val fit: Int = 0,           // 0 crop, 1 fit
     val value: Float = 0.6f,    // progress / slider / rating / toggle / checkbox state
     val locked: Boolean = false,
@@ -111,10 +112,14 @@ data class Block(
     val align: Int = 0,     // 0 start, 1 center
     val padding: Float = 16f,
     val radius: Float = 16f,
+    val textScale: Float = 1f,
+    val minHeight: Float = 0f,
+    val pinBottom: Boolean = false, // keep at the bottom of the page (footers, tab bars)
+    val image: String = "",         // photo for hero / card blocks
 )
 
 @Serializable
-data class Page(val id: String = newId(), val name: String, val blocks: List<Block> = emptyList())
+data class Page(val id: String = newId(), val name: String, val blocks: List<Block> = emptyList(), val height: Float = 640f)
 
 @Serializable
 data class AppProject(
@@ -122,8 +127,15 @@ data class AppProject(
     val name: String,
     val logoStyle: Int = 0, // 0 icon + text, 1 letter, 2 text only
     val logoIcon: String = "coffee",
-    val palette: Int = 0,
+    val palette: Int = 0,   // index into Palettes, or -1 for [customColors]
+    val customColors: List<Long> = emptyList(), // primary, surface, accent, background, text
     val font: Int = 2,      // 0 Tajawal, 1 Cairo, 2 IBM Plex
+    val logoFont: Int = -1, // index into FontCatalog; -1 follows the app font
+    val logoShape: Int = 0, // 0 rounded square, 1 circle, 2 no background
+    val logoLayout: Int = 0, // 0 side by side, 1 stacked
+    val logoScale: Float = 1f,
+    val logoSpacing: Float = 0f,
+    val tagline: String = "",
     val applyIdentity: Boolean = true,
     val pages: List<Page> = emptyList(),
     val updated: Long = System.currentTimeMillis(),

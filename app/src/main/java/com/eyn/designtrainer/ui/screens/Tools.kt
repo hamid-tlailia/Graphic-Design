@@ -42,6 +42,9 @@ import androidx.compose.material.icons.rounded.SettingsEthernet
 import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.FormatAlignCenter
+import androidx.compose.material.icons.rounded.FormatAlignLeft
+import androidx.compose.material.icons.rounded.FormatAlignRight
 import androidx.compose.material.icons.rounded.VerticalAlignBottom
 import androidx.compose.material.icons.rounded.VerticalAlignCenter
 import androidx.compose.material.icons.rounded.VerticalAlignTop
@@ -68,6 +71,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.eyn.designtrainer.data.ColorPair
@@ -79,6 +83,7 @@ import com.eyn.designtrainer.ui.LocalData
 import com.eyn.designtrainer.ui.LocalNav
 import com.eyn.designtrainer.ui.LocalVm
 import com.eyn.designtrainer.ui.Routes
+import com.eyn.designtrainer.ui.goTab
 import com.eyn.designtrainer.ui.components.ColorDialog
 import com.eyn.designtrainer.ui.components.EynCard
 import com.eyn.designtrainer.ui.components.IconTile
@@ -121,7 +126,7 @@ fun PracticeHubScreen() {
             )
             tools.forEach { t ->
                 EynCard(Modifier.fillMaxWidth(), onClick = {
-                    if (t.route == Routes.STUDIO) nav.navigate(t.route) { launchSingleTop = true; popUpTo(Routes.HOME) { saveState = true }; restoreState = true }
+                    if (t.route == Routes.STUDIO) nav.goTab(t.route)
                     else nav.navigate(t.route)
                 }) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -150,15 +155,135 @@ private fun MeasureTag(v: Int, modifier: Modifier = Modifier) {
     )
 }
 
+/** One spacing exercise: what the two sliders and the alignment control mean, and what passes. */
+private data class Drill(
+    val title: L,
+    val goal: L,
+    val padLabel: L,
+    val gapLabel: L,
+    val vertical: Boolean,        // alignment control: vertical (top/center/bottom) or horizontal (start/center/end)
+    val padOk: IntRange,
+    val gapOk: IntRange,
+    val alignOk: Int,
+    val start: Triple<Int, Int, Int>,
+    val tip: L,
+)
+
+private val Drills = listOf(
+    Drill(
+        L("بطاقة منتج", "Product card"), L("حشوة 16 حول المحتوى، فجوة 12 بين الصورة والنص، والعناصر في المنتصف عمودياً.", "16 padding around the content, 12 gap between image and text, items centered vertically."),
+        L("الحشوة الداخلية", "Inner padding"), L("الفجوة", "Gap"), true, 16..16, 12..12, 1, Triple(4, 26, 0),
+        L("الحشوة أكبر من الفجوة فتبدو العناصر مجموعة واحدة داخل البطاقة.", "Padding larger than the gap keeps items grouped inside the card."),
+    ),
+    Drill(
+        L("زر مع أيقونة", "Icon button"), L("حشوة أفقية 24 داخل الزر، فجوة 8 بين الأيقونة والنص، والمحتوى في الوسط.", "24 horizontal padding inside the button, 8 between icon and label, content centered."),
+        L("الحشوة الأفقية", "Horizontal padding"), L("فجوة الأيقونة", "Icon gap"), false, 20..24, 8..8, 1, Triple(6, 20, 0),
+        L("الأيقونة والنص وحدة واحدة: فجوة صغيرة بينهما وهواء أكبر حولهما.", "Icon and label are one unit: a small gap between, more air around."),
+    ),
+    Drill(
+        L("بطاقة عمودية", "Vertical card"), L("حشوة 16، فجوة 8 بين الصورة والعنوان، والنص محاذى لبداية السطر.", "16 padding, 8 between image and title, text aligned to the start."),
+        L("الحشوة الداخلية", "Inner padding"), L("فجوة الصورة", "Image gap"), false, 16..16, 8..8, 0, Triple(30, 2, 1),
+        L("النصوص الطويلة تُحاذى للبداية؛ التوسيط يناسب العناوين القصيرة فقط.", "Long text aligns to the start; centering suits short headings only."),
+    ),
+    Drill(
+        L("قائمة أشخاص", "People list"), L("مسافة عمودية 12 لكل صف، فجوة 12 بين الصورة والاسم، والعناصر في منتصف الصف.", "12 vertical padding per row, 12 between avatar and name, items centered in the row."),
+        L("حشوة الصف", "Row padding"), L("فجوة الصورة", "Avatar gap"), true, 12..12, 12..16, 1, Triple(2, 4, 0),
+        L("الصفوف المتكررة تحتاج إيقاعاً ثابتاً؛ حشوة متساوية تجعل القائمة سهلة المسح.", "Repeated rows need a steady rhythm; equal padding makes lists easy to scan."),
+    ),
+    Drill(
+        L("حقل نموذج", "Form field"), L("فجوة 4 إلى 8 بين العنوان وحقله (قانون التقارب)، حشوة 16 داخل الحقل، ومحاذاة للبداية.", "4–8 between label and its field (proximity), 16 padding inside the field, start aligned."),
+        L("حشوة الحقل", "Field padding"), L("عنوان ↔ حقل", "Label ↔ field"), false, 16..16, 4..8, 0, Triple(4, 24, 1),
+        L("العنوان الملتصق بحقله يُفهم فوراً أنه يصفه.", "A label close to its field is instantly read as describing it."),
+    ),
+    Drill(
+        L("قسم رئيسي", "Hero section"), L("هوامش واسعة 24 إلى 32، فجوة 16 بين العنوان والزر، والمحتوى في الوسط.", "Generous 24–32 margins, 16 between headline and button, content centered."),
+        L("الهوامش", "Margins"), L("فجوة الزر", "Button gap"), false, 24..32, 16..16, 1, Triple(8, 4, 0),
+        L("المساحة البيضاء حول العنصر الأهم تمنحه حضوراً وفخامة.", "White space around the key element gives it presence."),
+    ),
+)
+
+@Composable
+private fun DrillPreview(index: Int, pad: Dp, gap: Dp, align: Int, p: Int, g: Int) {
+    val c = Eyn.c
+    val line = @Composable { frac: Float, h: Dp, col: Color -> Box(Modifier.fillMaxWidth(frac).height(h).clip(CircleShape).background(col)) }
+    val hAlign = when (align) { 0 -> Alignment.Start; 1 -> Alignment.CenterHorizontally; else -> Alignment.End }
+    val frame = Modifier.clip(RoundedCornerShape(14.dp)).background(c.surfaceAlt).border(1.5.dp, Color(0xFF3B82F6), RoundedCornerShape(14.dp))
+    Box {
+        when (index) {
+            0 -> Row(
+                frame.width(250.dp).height(120.dp).padding(pad),
+                verticalAlignment = when (align) { 0 -> Alignment.Top; 1 -> Alignment.CenterVertically; else -> Alignment.Bottom },
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    line(0.8f, 9.dp, c.primary); line(1f, 7.dp, c.muted.copy(alpha = 0.4f)); line(0.6f, 7.dp, c.muted.copy(alpha = 0.4f))
+                }
+                Box(Modifier.width(gap).height(10.dp).wrapContentSize(unbounded = true)) { MeasureTag(g) }
+                Box(Modifier.size(56.dp).clip(RoundedCornerShape(10.dp)).background(c.lilac))
+            }
+            1 -> Row(
+                Modifier.width(240.dp).height(56.dp).clip(RoundedCornerShape(16.dp)).background(c.primary).padding(horizontal = pad),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = when (align) { 0 -> Arrangement.Start; 1 -> Arrangement.Center; else -> Arrangement.End },
+            ) {
+                Icon(Icons.Rounded.Refresh, null, tint = c.onPrimary, modifier = Modifier.size(20.dp))
+                Box(Modifier.width(gap).height(10.dp).wrapContentSize(unbounded = true)) { MeasureTag(g) }
+                Text(tr("أضف إلى السلة", "Add to cart"), style = Type.button, color = c.onPrimary, maxLines = 1)
+            }
+            2 -> Column(frame.width(190.dp).padding(pad), horizontalAlignment = hAlign) {
+                Box(Modifier.fillMaxWidth().height(80.dp).clip(RoundedCornerShape(10.dp)).background(c.lilac))
+                Box(Modifier.height(gap).width(10.dp).wrapContentSize(unbounded = true)) { MeasureTag(g) }
+                Text(tr("كرسي بسيط", "Minimal chair"), style = Type.h3, color = c.text)
+                Text(tr("قماش ناعم وخشب بلوط", "Soft fabric, oak legs"), style = Type.small, color = c.muted)
+            }
+            3 -> Column(frame.width(250.dp)) {
+                repeat(3) { r ->
+                    Row(
+                        Modifier.fillMaxWidth().height(pad * 2 + 40.dp).padding(horizontal = 12.dp),
+                        verticalAlignment = when (align) { 0 -> Alignment.Top; 1 -> Alignment.CenterVertically; else -> Alignment.Bottom },
+                    ) {
+                        Box(Modifier.size(40.dp).clip(CircleShape).background(listOf(c.lilac, c.accentSoft, c.successSoft)[r]))
+                        Box(Modifier.width(gap).height(10.dp).wrapContentSize(unbounded = true)) { if (r == 0) MeasureTag(g) }
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) { line(0.6f, 8.dp, c.text.copy(alpha = 0.7f)); line(0.4f, 6.dp, c.muted.copy(alpha = 0.4f)) }
+                    }
+                    if (r < 2) Box(Modifier.fillMaxWidth().height(1.dp).background(c.outline))
+                }
+            }
+            4 -> Column(Modifier.width(250.dp), horizontalAlignment = hAlign) {
+                Text(tr("البريد الإلكتروني", "Email"), style = Type.label, color = c.text)
+                Box(Modifier.height(gap).width(10.dp).wrapContentSize(unbounded = true)) { MeasureTag(g) }
+                Box(
+                    Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(12.dp)).background(c.surface).border(1.dp, c.outline, RoundedCornerShape(12.dp)).padding(horizontal = pad),
+                    contentAlignment = when (align) { 0 -> Alignment.CenterStart; 1 -> Alignment.Center; else -> Alignment.CenterEnd },
+                ) { Text("name@mail.com", style = Type.body, color = c.muted) }
+                Spacer(Modifier.height(20.dp))
+                Text(tr("كلمة المرور", "Password"), style = Type.label, color = c.text)
+                Spacer(Modifier.height(gap))
+                Box(Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(12.dp)).background(c.surface).border(1.dp, c.outline, RoundedCornerShape(12.dp)))
+            }
+            else -> Column(frame.width(260.dp).padding(pad), horizontalAlignment = hAlign) {
+                Text(tr("تصميم يتحدث عن نفسه", "Design that speaks"), style = Type.h2, color = c.text, textAlign = when (align) { 1 -> TextAlign.Center; 2 -> TextAlign.End; else -> TextAlign.Start })
+                Box(Modifier.height(gap).width(10.dp).wrapContentSize(unbounded = true)) { MeasureTag(g) }
+                Box(Modifier.clip(RoundedCornerShape(12.dp)).background(c.accent).padding(horizontal = 18.dp, vertical = 10.dp)) {
+                    Text(tr("ابدأ الآن", "Start now"), style = Type.label, color = Color.White)
+                }
+            }
+        }
+        if (index != 1 && index != 3) MeasureTag(p, Modifier.align(Alignment.TopCenter).offset(y = (-10).dp))
+        else MeasureTag(p, Modifier.align(Alignment.CenterStart).offset(x = (-10).dp))
+    }
+}
+
 @Composable
 fun SpacingPracticeScreen() {
     val c = Eyn.c
     val vm = LocalVm.current
     val nav = LocalNav.current
-    var round by rememberSaveable { mutableIntStateOf(1) }
-    var pad by rememberSaveable(round) { mutableFloatStateOf(listOf(2f, 6f, 30f, 10f).random()) }
-    var gap by rememberSaveable(round) { mutableFloatStateOf(listOf(2f, 22f, 30f, 14f).random()) }
-    var align by rememberSaveable(round) { mutableIntStateOf(Random.nextInt(0, 3).let { if (it == 1) 0 else it }) }
+    var round by rememberSaveable { mutableIntStateOf(0) }
+    var finished by rememberSaveable { mutableStateOf(false) }
+    val drill = Drills[round]
+    var pad by rememberSaveable(round) { mutableFloatStateOf(drill.start.first.toFloat()) }
+    var gap by rememberSaveable(round) { mutableFloatStateOf(drill.start.second.toFloat()) }
+    var align by rememberSaveable(round) { mutableIntStateOf(drill.start.third) }
     var result by remember(round) { mutableStateOf<List<L>?>(null) }
     val p = pad.toInt()
     val g = gap.toInt()
@@ -167,40 +292,31 @@ fun SpacingPracticeScreen() {
 
     Column(Modifier.fillMaxSize()) {
         TopBar(tr("تطبيق عملي", "Practice"), onBack = { nav.popBackStack() }) {
-            Text("$round / 6", style = Type.label, color = c.muted)
+            Text("${round + 1} / ${Drills.size}", style = Type.label, color = c.muted)
         }
+        com.eyn.designtrainer.ui.components.SegmentedProgress(Drills.size, round + if (result?.isEmpty() == true) 1 else 0, Modifier.padding(horizontal = 20.dp))
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
-            Text(tr("عدّل المسافات حتى تتوازن البطاقة", "Adjust spacing until the card balances"), style = Type.h3, color = c.text)
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(12.dp))
+            Text(drill.title.t(), style = Type.h2, color = c.text)
+            Spacer(Modifier.height(6.dp))
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(c.lilac).padding(12.dp)) {
+                Text(tr("الهدف: ", "Goal: ") + drill.goal.t(), style = Type.small, color = c.onLilac)
+            }
+            Spacer(Modifier.height(14.dp))
             Box(
-                Modifier.fillMaxWidth().height(230.dp).clip(RoundedCornerShape(20.dp)).background(c.surface)
+                Modifier.fillMaxWidth().height(260.dp).clip(RoundedCornerShape(20.dp)).background(c.surface)
                     .border(1.dp, c.outline, RoundedCornerShape(20.dp)).dotPattern(c.muted.copy(alpha = 0.25f), 14.dp),
                 contentAlignment = Alignment.Center,
-            ) {
-                Box {
-                    Row(
-                        Modifier.width(250.dp).height(120.dp).clip(RoundedCornerShape(14.dp)).background(c.surfaceAlt)
-                            .border(1.5.dp, Color(0xFF3B82F6), RoundedCornerShape(14.dp)).padding(animPad),
-                        verticalAlignment = when (align) { 0 -> Alignment.Top; 1 -> Alignment.CenterVertically; else -> Alignment.Bottom },
-                    ) {
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                            Box(Modifier.fillMaxWidth(0.8f).height(9.dp).clip(CircleShape).background(c.primary))
-                            Box(Modifier.fillMaxWidth().height(7.dp).clip(CircleShape).background(c.muted.copy(alpha = 0.4f)))
-                            Box(Modifier.fillMaxWidth(0.6f).height(7.dp).clip(CircleShape).background(c.muted.copy(alpha = 0.4f)))
-                        }
-                        Box(Modifier.width(animGap).height(10.dp).wrapContentSize(unbounded = true)) { MeasureTag(g) }
-                        Box(Modifier.size(56.dp).clip(RoundedCornerShape(10.dp)).background(c.lilac))
-                    }
-                    MeasureTag(p, Modifier.align(Alignment.TopCenter).offset(y = (-10).dp))
-                }
-            }
+            ) { DrillPreview(round, animPad, animGap, align, p, g) }
             Spacer(Modifier.height(16.dp))
             EynCard(Modifier.fillMaxWidth()) {
-                SliderRow(tr("الحشوة الداخلية", "Inner padding"), pad, 0f..32f, 15) { pad = it; result = null }
-                SliderRow(tr("الفجوة", "Gap"), gap, 0f..32f, 15) { gap = it; result = null }
+                SliderRow(drill.padLabel.t(), pad, 0f..40f, 19) { pad = it; result = null }
+                SliderRow(drill.gapLabel.t(), gap, 0f..40f, 19) { gap = it; result = null }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(tr("المحاذاة", "Alignment"), style = Type.label, color = c.text, modifier = Modifier.weight(1f))
-                    listOf(Icons.Rounded.VerticalAlignTop, Icons.Rounded.VerticalAlignCenter, Icons.Rounded.VerticalAlignBottom).forEachIndexed { i, ic ->
+                    val icons = if (drill.vertical) listOf(Icons.Rounded.VerticalAlignTop, Icons.Rounded.VerticalAlignCenter, Icons.Rounded.VerticalAlignBottom)
+                    else listOf(Icons.Rounded.FormatAlignLeft, Icons.Rounded.FormatAlignCenter, Icons.Rounded.FormatAlignRight)
+                    icons.forEachIndexed { i, ic ->
                         val on = align == i
                         val bg by animateColorAsState(if (on) c.lilac else c.surfaceAlt, label = "al")
                         Box(
@@ -221,25 +337,44 @@ fun SpacingPracticeScreen() {
                     Icon(if (ok) Icons.Rounded.Check else Icons.Rounded.Close, null, tint = if (ok) c.success else c.danger)
                     Spacer(Modifier.width(10.dp))
                     Column {
-                        if (ok) Text(tr("ممتاز! تصميم متوازن (+10 نقاط)", "Excellent! A balanced design (+10 points)"), style = Type.label, color = c.success)
+                        if (ok) {
+                            Text(tr("ممتاز! (+10 نقاط)", "Excellent! (+10 points)"), style = Type.label, color = c.success)
+                            Text(drill.tip.t(), style = Type.small, color = c.success)
+                        }
                         issues.forEach { Text("• " + it.t(), style = Type.small, color = c.danger) }
                     }
+                }
+            }
+            if (finished) {
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(c.accentSoft).padding(14.dp)) {
+                    Text(tr("🎉 أنهيت التمارين الستة! يمكنك إعادتها أو تجربة الاستوديو.", "🎉 You finished all six drills! Replay them or try the Studio."), style = Type.label, color = c.accent)
                 }
             }
             Spacer(Modifier.height(16.dp))
         }
         Box(Modifier.navigationBarsPadding().padding(20.dp)) {
             if (result?.isEmpty() == true) {
-                PrimaryButton(tr("الجولة التالية", "Next round"), icon = Icons.Rounded.Refresh) { round = round % 6 + 1 }
+                val last = round == Drills.lastIndex
+                PrimaryButton(if (last) tr("ابدأ من جديد", "Start over") else tr("التمرين التالي", "Next drill"), icon = Icons.Rounded.Refresh) {
+                    if (last) finished = true
+                    round = (round + 1) % Drills.size
+                }
             } else {
                 PrimaryButton(tr("تحقّق من التصميم", "Check design")) {
                     val issues = buildList {
-                        if (p % 8 != 0 && p % 4 != 0) add(L("الحشوة ليست من مضاعفات 4 أو 8", "Padding isn't a multiple of 4 or 8"))
-                        if (g % 4 != 0) add(L("الفجوة ليست من مضاعفات 4", "Gap isn't a multiple of 4"))
-                        if (p !in 12..24) add(L("الحشوة المريحة للبطاقات بين 12 و24", "Comfortable card padding is 12–24"))
-                        if (g >= p) add(L("الفجوة يجب أن تكون أصغر من الحشوة", "The gap should be smaller than the padding"))
-                        if (g < 8) add(L("العناصر ملتصقة: الفجوة أقل من 8", "Items are cramped: gap below 8"))
-                        if (align != 1) add(L("وسّط العناصر عمودياً لتوازن الصورة مع النص", "Center items vertically to balance image and text"))
+                        if (p !in drill.padOk) add(L(
+                            "${drill.padLabel.ar}: $p — المطلوب ${drill.padOk.first}${if (drill.padOk.last != drill.padOk.first) "–${drill.padOk.last}" else ""}",
+                            "${drill.padLabel.en}: $p — target ${drill.padOk.first}${if (drill.padOk.last != drill.padOk.first) "–${drill.padOk.last}" else ""}",
+                        ))
+                        if (g !in drill.gapOk) add(L(
+                            "${drill.gapLabel.ar}: $g — المطلوب ${drill.gapOk.first}${if (drill.gapOk.last != drill.gapOk.first) "–${drill.gapOk.last}" else ""}",
+                            "${drill.gapLabel.en}: $g — target ${drill.gapOk.first}${if (drill.gapOk.last != drill.gapOk.first) "–${drill.gapOk.last}" else ""}",
+                        ))
+                        if (align != drill.alignOk) add(
+                            if (drill.vertical) L("غيّر المحاذاة العمودية كما في الهدف", "Change the vertical alignment to match the goal")
+                            else L("غيّر المحاذاة الأفقية كما في الهدف", "Change the horizontal alignment to match the goal"),
+                        )
                     }
                     result = issues
                     if (issues.isEmpty()) vm.practiceWin()

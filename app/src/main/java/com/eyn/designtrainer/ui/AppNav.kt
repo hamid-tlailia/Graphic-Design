@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -85,6 +86,19 @@ import com.eyn.designtrainer.ui.theme.Type
 val LocalData = staticCompositionLocalOf { AppData() }
 val LocalVm = staticCompositionLocalOf<AppViewModel> { error("no vm") }
 val LocalNav = staticCompositionLocalOf<NavHostController> { error("no nav") }
+
+/**
+ * Switches to a bottom-bar tab, always showing that tab's main screen. Tab stacks are not saved
+ * and restored: doing so brought back screens opened from elsewhere (e.g. the Studio opened from
+ * a lesson reappeared when tapping "Lessons").
+ */
+fun NavHostController.goTab(route: String) {
+    if (currentBackStackEntry?.destination?.route == route) return
+    navigate(route) {
+        popUpTo(Routes.HOME) { inclusive = route == Routes.HOME }
+        launchSingleTop = true
+    }
+}
 
 object Routes {
     const val ONBOARDING = "onboarding"
@@ -150,7 +164,10 @@ internal fun AppNav(dark: Boolean, startOverride: String? = null) {
 
     val dur = 340
     CompositionLocalProvider(LocalNav provides nav) {
-        Column(Modifier.fillMaxSize().background(c.bg)) {
+        // Status bar padding lives here, outside every scroll container, so content never scrolls
+        // underneath the system status bar. Screens' own statusBarsPadding() then becomes a no-op.
+        val top by animateColorAsState(if (route == Routes.ONBOARDING) c.hero else c.bg, tween(300), label = "statusbar")
+        Column(Modifier.fillMaxSize().background(top).statusBarsPadding().background(c.bg)) {
             NavHost(
                 navController = nav,
                 startDestination = start,
@@ -197,13 +214,7 @@ internal fun AppNav(dark: Boolean, startOverride: String? = null) {
                 enter = slideInVertically { it } + fadeIn(),
                 exit = slideOutVertically { it } + fadeOut(),
             ) {
-                BottomBar(route) { target ->
-                    nav.navigate(target) {
-                        popUpTo(Routes.HOME) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                }
+                BottomBar(route) { target -> nav.goTab(target) }
             }
         }
     }

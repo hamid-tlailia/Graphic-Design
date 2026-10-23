@@ -72,9 +72,8 @@ import com.eyn.designtrainer.data.Design
 import com.eyn.designtrainer.data.El
 import com.eyn.designtrainer.data.ElType
 import com.eyn.designtrainer.data.c
-import com.eyn.designtrainer.ui.theme.Cairo
-import com.eyn.designtrainer.ui.theme.Plex
-import com.eyn.designtrainer.ui.theme.Tajawal
+import com.eyn.designtrainer.ui.theme.FontCatalog
+import com.eyn.designtrainer.ui.theme.fontAt
 import kotlin.math.roundToInt
 
 /** Small vector set used by the block builder's logo picker. The canvas uses the full [IconFont]. */
@@ -102,7 +101,7 @@ val CanvasIcons: Map<String, ImageVector> = linkedMapOf(
     "arrow_back" to Icons.AutoMirrored.Rounded.ArrowBack,
 )
 
-val CanvasFonts: List<Pair<String, FontFamily>> = listOf("IBM Plex" to Plex, "Cairo" to Cairo, "Tajawal" to Tajawal)
+val CanvasFonts: List<Pair<String, FontFamily>> get() = FontCatalog.map { it.name to it.family }
 
 private val ROUND_TYPES = setOf(ElType.CIRCLE, ElType.AVATAR)
 
@@ -143,7 +142,7 @@ fun RenderEl(e: El, scale: Float, modifier: Modifier = Modifier) {
     val textAlign = when (e.align) { 1 -> TextAlign.Center; 2 -> TextAlign.Right; else -> TextAlign.Left }
     val style = TextStyle(
         color = e.fg.c(), fontSize = fontSize, lineHeight = fontSize * e.lineHeight,
-        fontFamily = CanvasFonts.getOrNull(e.font)?.second ?: Plex,
+        fontFamily = fontAt(e.font),
         fontWeight = if (e.bold) FontWeight.Bold else FontWeight.Normal,
         fontStyle = if (e.italic) FontStyle.Italic else FontStyle.Normal,
         textDecoration = if (e.underline) TextDecoration.Underline else null,
@@ -163,6 +162,7 @@ fun RenderEl(e: El, scale: Float, modifier: Modifier = Modifier) {
             .then(if (hasBox && fill != null) Modifier.background(fill, shape) else Modifier)
             .then(if (hasBox && e.borderW > 0f) Modifier.border((e.borderW * scale).dp, e.borderColor.c(), shape) else Modifier),
     ) {
+        if (e.backImage.isNotEmpty() && hasBox) PhotoImage(e.backImage, 0, Modifier.fillMaxSize())
         if (e.image.isNotEmpty() && hasBox) PhotoImage(e.image, e.fit, Modifier.fillMaxSize())
         val inner = Modifier.fillMaxSize().padding(horizontal = (e.padH * scale).dp, vertical = (e.padV * scale).dp)
         when (e.type) {
@@ -237,15 +237,16 @@ fun RenderEl(e: El, scale: Float, modifier: Modifier = Modifier) {
 /** The whole design at a fixed scale (no interaction). */
 @Composable
 fun DesignCanvas(design: Design, scale: Float, modifier: Modifier = Modifier) {
-    Box(
-        modifier
-            .size((design.w * scale).dp, (design.h * scale).dp)
-            .background(design.bg.c())
-            .clipToBounds(),
-    ) {
-        if (design.bgImage.isNotEmpty()) PhotoImage(design.bgImage, 0, Modifier.fillMaxSize())
-        // Canvas coordinates are absolute, so lay elements out left-to-right in every language.
-        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+    // Canvas coordinates are absolute, so the canvas box itself must lay out left-to-right in every
+    // language; otherwise RTL places each child at the right edge before its offset is applied.
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+        Box(
+            modifier
+                .size((design.w * scale).dp, (design.h * scale).dp)
+                .background(design.bg.c())
+                .clipToBounds(),
+        ) {
+            if (design.bgImage.isNotEmpty()) PhotoImage(design.bgImage, 0, Modifier.fillMaxSize())
             design.els.forEach { RenderEl(it, scale) }
         }
     }
