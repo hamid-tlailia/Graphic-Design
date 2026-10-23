@@ -7,7 +7,7 @@ To rebuild it with your WhatsApp number (the QR code opens a chat with that numb
 ```bash
 ./gradlew testDebugUnitTest --tests '*ScreenshotTest*'   # refresh app screenshots
 pip install qrcode
-python3 promo/make_reel.py --phone "+216 12 345 678"
+python3 promo/make_reel.py --phone "+974 7100 9494"
 ```
 
 It needs ffmpeg and the Playwright Chromium at `/opt/pw-browsers`; set `CHROME` in the script to use another path.

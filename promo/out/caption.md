@@ -12,7 +12,7 @@
 📱 ابنِ واجهات تطبيقك بالبلوكات الجاهزة، وصدّرها PNG · PDF · HTML · React Native
 🌙 عربي و English · وضع فاتح وداكن
 
-📲 امسح الكود في الفيديو أو راسلنا على واتساب: [رقمك هنا]
+📲 امسح الكود في الفيديو أو راسلنا على واتساب: +974 7100 9494
 
 #تصميم_جرافيك #تعلم_التصميم #مصمم_جرافيك #هوية_بصرية #تصميم_شعارات #تصميم_تطبيقات #واجهات_المستخدم #خطوط_عربية #تطبيقات_اندرويد #تعلم_ذاتي #عين
 
@@ -28,7 +28,7 @@ Train your designer's eye, one minute a day ✨
 📱 Build app screens from ready blocks, then export to PNG · PDF · HTML · React Native
 🌙 Arabic & English · light & dark mode
 
-📲 Scan the code in the video or message us on WhatsApp: [your number]
+📲 Scan the code in the video or message us on WhatsApp: +974 7100 9494
 
 #GraphicDesign #LearnDesign #DesignTips #UIDesign #UXDesign #LogoDesign #Branding #Typography #AppDesign #AndroidApp #DesignApp #EYN
 
