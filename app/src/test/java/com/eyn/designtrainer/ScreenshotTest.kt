@@ -157,5 +157,6 @@ class ScreenshotTest {
     }
     @Test fun s34_identity_custom() = shot("34_identity_custom", Routes.identity("p1")) { click("ألواني") }
     @Test fun s35_studio_logos() = shot("35_studio_logos", Routes.STUDIO) { click("الشعارات") }
+    @Test fun s36_canvas_size() = shot("36_canvas_size", Routes.canvas("d2")) { click("الألوان"); click("جوال 360") }
     @Test fun s23_build_dark() = shot("23_build_dark", Routes.build("p1"), dark = true)
 }

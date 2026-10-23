@@ -68,6 +68,7 @@ import androidx.compose.material.icons.rounded.AlignVerticalCenter
 import androidx.compose.material.icons.rounded.AlignVerticalTop
 import androidx.compose.material.icons.rounded.CenterFocusStrong
 import androidx.compose.material.icons.rounded.CheckBox
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.ContentPaste
@@ -966,14 +967,16 @@ private fun Toggle(icon: ImageVector, on: Boolean, size: Int = 44, onClick: () -
 }
 
 @Composable
-private fun ActionChip(text: String, icon: ImageVector, enabled: Boolean = true, onClick: () -> Unit) {
+private fun ActionChip(text: String, icon: ImageVector, enabled: Boolean = true, selected: Boolean = false, onClick: () -> Unit) {
     val c = Eyn.c
+    val border by animateColorAsState(if (selected) c.primary else Color.Transparent, label = "chipBorder")
     Row(
-        Modifier.clip(RoundedCornerShape(12.dp)).background(if (enabled) c.lilac else c.surfaceAlt).clickable(enabled = enabled, onClick = onClick)
+        Modifier.clip(RoundedCornerShape(12.dp)).background(if (enabled) c.lilac else c.surfaceAlt)
+            .border(2.dp, border, RoundedCornerShape(12.dp)).clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, null, tint = if (enabled) c.onLilac else c.muted, modifier = Modifier.size(18.dp))
+        Icon(if (selected) Icons.Rounded.CheckCircle else icon, null, tint = if (selected) c.primary else if (enabled) c.onLilac else c.muted, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(6.dp))
         Text(text, style = Type.label, color = if (enabled) c.onLilac else c.muted)
     }
@@ -1026,7 +1029,8 @@ private fun StylePanel(state: EditorState, pickPhoto: (String) -> Unit, onRemove
                 tr("جوال", "Phone") to (360f to 640f), tr("منشور", "Post") to (1080f to 1080f),
                 tr("ستوري", "Story") to (1080f to 1920f), tr("غلاف", "Cover") to (1200f to 630f), "A4" to (595f to 842f),
             ).forEach { (n, size) ->
-                ActionChip("$n ${size.first.toInt()}×${size.second.toInt()}", Icons.Rounded.FitScreen) {
+                val chosen = state.design.w == size.first && state.design.h == size.second
+                ActionChip("$n ${size.first.toInt()}×${size.second.toInt()}", Icons.Rounded.FitScreen, selected = chosen) {
                     state.canvas(null) { it.copy(w = size.first, h = size.second) }
                 }
             }

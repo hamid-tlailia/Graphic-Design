@@ -5,7 +5,7 @@ An Android app that teaches graphic design, plus a builder for ready-made UI blo
 
 **Kotlin · Jetpack Compose · Material 3 · Arabic (RTL) & English · Auto / light / dark theme**
 
-📦 Ready-to-install APK: [`release/eyn-1.2.0.apk`](release/eyn-1.2.0.apk)
+📦 Ready-to-install APK: [`release/eyn-1.2.1.apk`](release/eyn-1.2.1.apk)
 
 | Home | Challenge | Lesson | Studio | Page builder | Canvas editor |
 |---|---|---|---|---|---|
