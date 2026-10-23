@@ -11,3 +11,9 @@ python3 promo/make_reel.py --phone "+974 7100 9494"
 ```
 
 It needs ffmpeg and the Playwright Chromium at `/opt/pw-browsers`; set `CHROME` in the script to use another path.
+
+For TikTok, which removes videos that show a phone number or a QR code pointing outside the app, build the version that ends on a follow card instead:
+
+```bash
+python3 promo/make_reel.py --tiktok      # → out/eyn_reel_tiktok.mp4, caption in out/caption_tiktok.md
+```

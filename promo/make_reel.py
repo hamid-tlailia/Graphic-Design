@@ -142,6 +142,20 @@ WA_ICON = """<svg viewBox="0 0 32 32" width="64" height="64"><path fill="#25D366
 <path fill="#fff" d="M23.2 19.3c-.4-.2-2.3-1.1-2.6-1.3-.4-.1-.6-.2-.9.2l-1.2 1.5c-.2.3-.4.3-.8.1a10.8 10.8 0 0 1-5.4-4.7c-.4-.7.4-.6 1.1-2 .1-.2.1-.5 0-.7l-1.2-2.8c-.3-.8-.6-.6-.9-.7h-.7c-.3 0-.7.1-1 .5-.4.4-1.4 1.3-1.4 3.2s1.4 3.7 1.6 4c.2.3 2.7 4.2 6.6 5.8 2.5 1 3.4 1.1 4.7.9.8-.1 2.3-.9 2.6-1.8.3-.9.3-1.7.2-1.8-.1-.2-.4-.3-.7-.4z"/></svg>"""
 
 
+def follow_html():
+    """Ending without phone number or QR: TikTok removes videos that send viewers off the platform."""
+    return page(f"""
+<div style="position:absolute;top:260px;left:0;right:0;text-align:center">
+  <div style="width:190px;height:190px;margin:0 auto">{EYE}</div>
+  <h1 style="font-size:84px;font-weight:800;margin-top:40px;line-height:1.2">ابدأ رحلتك<br>في التصميم اليوم</h1>
+  <p class="en" dir="ltr" style="font-size:38px;color:{LILAC};margin-top:18px">Start your design journey today</p>
+  <div style="display:inline-block;margin-top:70px;font-size:46px;font-weight:800;color:#fff;background:{CORAL};padding:22px 52px;border-radius:60px">تابعنا لدروس تصميم يومية</div>
+  <p class="en" dir="ltr" style="font-size:34px;color:{LILAC};margin-top:20px">Follow for daily design tips</p>
+  <p style="font-size:44px;margin-top:70px">💬 راسلنا في الخاص</p>
+  <p class="en" dir="ltr" style="font-size:32px;color:{LILAC};margin-top:8px">Send us a DM</p>
+</div>""")
+
+
 def cta_html(phone: str):
     return page(f"""
 <div style="position:absolute;top:120px;left:0;right:0;text-align:center">
@@ -199,6 +213,7 @@ def join(clips, durations, out: Path):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--phone", default="+000 00 000 000", help="WhatsApp number shown on screen and in the QR code")
+    ap.add_argument("--tiktok", action="store_true", help="end on a follow card instead of the WhatsApp number and QR")
     a = ap.parse_args()
     shutil.rmtree(WORK, ignore_errors=True); WORK.mkdir(parents=True)
 
@@ -210,11 +225,13 @@ def main():
         bg = render(f"s{i}_bg", page(caption(i, title, en, chip)))
         fg = render(f"s{i}_fg", page(phones(shots), transparent=True), transparent=True)
         clips.append(clip(f"s{i}", bg, fg, sec)); durs.append(sec)
-    clips.append(clip("cta", render("cta", cta_html(a.phone)), None, CTA_SECONDS)); durs.append(CTA_SECONDS)
+    end = follow_html() if a.tiktok else cta_html(a.phone)
+    clips.append(clip("cta", render("cta", end), None, CTA_SECONDS)); durs.append(CTA_SECONDS)
 
-    total = join(clips, durs, OUT / "eyn_reel.mp4")
+    reel = OUT / ("eyn_reel_tiktok.mp4" if a.tiktok else "eyn_reel.mp4")
+    total = join(clips, durs, reel)
     shutil.rmtree(WORK, ignore_errors=True)
-    print(f"reel: {OUT / 'eyn_reel.mp4'} ({total:.1f}s)\ncover: {OUT / 'cover.jpg'}\nQR → {wa_link(a.phone)}")
+    print(f"reel: {reel} ({total:.1f}s)\ncover: {OUT / 'cover.jpg'}" + ("" if a.tiktok else f"\nQR → {wa_link(a.phone)}"))
 
 
 if __name__ == "__main__":
