@@ -99,7 +99,7 @@ data class Design(
 // ---------------------------------------------------------------- Block builder
 
 @Serializable
-enum class BlockKind { HEADER, HERO, SEARCH, CATEGORIES, CARDS, LIST, TEXT, FORM, BUTTON, FOOTER }
+enum class BlockKind { HEADER, HERO, SEARCH, CATEGORIES, CARDS, LIST, TEXT, FORM, BUTTON, FOOTER, CUSTOM }
 
 @Serializable
 data class Block(
@@ -124,7 +124,7 @@ data class Block(
 )
 
 @Serializable
-data class BlockItem(val label: String, val icon: String = "")
+data class BlockItem(val label: String, val icon: String = "", val value: String = "", val image: String = "")
 
 @Serializable
 data class Page(val id: String = newId(), val name: String, val blocks: List<Block> = emptyList(), val height: Float = 640f)

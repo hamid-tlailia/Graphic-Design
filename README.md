@@ -5,7 +5,7 @@ An Android app that teaches graphic design, plus a builder for ready-made UI blo
 
 **Kotlin · Jetpack Compose · Material 3 · Arabic (RTL) & English · Auto / light / dark theme**
 
-📦 Ready-to-install APK: [`release/eyn-1.3.2.apk`](release/eyn-1.3.2.apk)
+📦 Ready-to-install APK: [`release/eyn-1.4.0.apk`](release/eyn-1.4.0.apk)
 
 | Home | Challenge | Lesson | Studio | Page builder | Canvas editor |
 |---|---|---|---|---|---|
@@ -47,7 +47,7 @@ An Android app that teaches graphic design, plus a builder for ready-made UI blo
    - **19 Arabic & Latin fonts** for the logo, name size, letter spacing, tagline
    - preset palettes or **your own colors** (with a contrast check)
    - **Open in logo designer** for full control and transparent HD export
-2. **Block library**: header, hero, search, categories, cards, lists, text, forms, buttons, footer.
+2. **Block library**: header, hero, search, categories, cards, lists, text, forms, buttons, footer, and a **custom block** (icon row, item & price list, card grid) for building your own header, footer or card.
 3. **Page builder**:
    - drag-to-reorder and labeled Up/Down buttons
    - **footers pinned to the bottom of the page**
@@ -56,7 +56,7 @@ An Android app that teaches graphic design, plus a builder for ready-made UI blo
 4. **Edit block** (the live preview stays pinned at the top):
    - text, variant, background, alignment, spacing, radius
    - **width %, button / field / image height, text size, minimum height, pin to bottom, a photo**
-   - **editable tabs, rows and categories**: name, icon, add or remove, and the active tab per page
+   - **editable items**: header icons, tab-bar tabs, list rows, categories, products and custom items (name, icon, price, photo), add or remove, and the active tab per page
 5. **Export**:
    - a **presentation board**: one image with the identity header (logo, app icon, palette with HEX codes, typeface, icon style) and every page in a phone frame, 4 per row, numbered and named
    - a PNG per page, HTML/CSS and React Native code
@@ -74,7 +74,7 @@ Ready templates: buttons, cards, headers, footers, login/sign-up, landing pages 
 - **Content and text**: font (IBM Plex / Cairo / Tajawal), bold, italic, underline, horizontal and vertical alignment, horizontal/vertical padding, line height, letter spacing.
 - **Style**: fill, gradient (3 directions), text/icon color, border, corner radius, shadow, opacity, copy/paste style.
 - **Real photos** from the phone (system photo picker, no permission needed) inside images, avatars, shapes, cards, buttons and the canvas background, with fill/fit modes.
-- **All 2,100+ Material icons** with search in Arabic and English, in **5 styles**: solid, outlined, rounded, sharp and two-tone (per element, and per project in the identity screen).
+- **All 2,100+ Material icons** with search in Arabic (a large topic dictionary that tolerates spelling variants) and English, in **5 styles**: solid, outlined, rounded, sharp and two-tone (per element, and per project in the identity screen).
 - Rotation, lock, show/hide, layers, z-order (forward, backward, to front, to back), duplicate, undo/redo, zoom.
 - The properties panel stays above the keyboard while you type.
 - **Background removal** from photos (on-device, ML Kit), then a new color, gradient or photo behind the subject.

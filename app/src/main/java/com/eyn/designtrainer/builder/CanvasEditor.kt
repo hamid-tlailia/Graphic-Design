@@ -1309,6 +1309,10 @@ fun IconPickerSheet(current: String, onDismiss: () -> Unit, style: Int = LocalIc
             Spacer(Modifier.height(8.dp))
             IconStyleRow(shown) { shown = it; onStyle?.invoke(it) }
             Text(tr("${results.size} أيقونة", "${results.size} icons"), style = Type.small, color = c.muted, modifier = Modifier.padding(vertical = 6.dp))
+            if (results.isEmpty()) Text(
+                tr("لا نتائج. جرّب كلمة أخرى أو بالإنجليزية (مثل hospital، cart، star).", "No results. Try another word, e.g. hospital, cart, star."),
+                style = Type.small, color = c.muted,
+            )
             LazyVerticalGrid(GridCells.Adaptive(56.dp), Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 items(results, key = { it.first }) { (name, glyph) ->
                     val on = name == current

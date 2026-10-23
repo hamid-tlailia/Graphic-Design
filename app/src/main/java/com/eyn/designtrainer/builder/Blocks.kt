@@ -158,6 +158,7 @@ fun BlockKind.label(): L = when (this) {
     BlockKind.FORM -> L("النماذج", "Forms")
     BlockKind.BUTTON -> L("الأزرار", "Buttons")
     BlockKind.FOOTER -> L("الفوتر", "Footer")
+    BlockKind.CUSTOM -> L("مخصص", "Custom")
 }
 
 val Variants: Map<BlockKind, List<L>> = mapOf(
@@ -174,6 +175,7 @@ val Variants: Map<BlockKind, List<L>> = mapOf(
     BlockKind.FORM to listOf(L("تسجيل دخول", "Sign in"), L("تواصل معنا", "Contact")),
     BlockKind.BUTTON to listOf(L("زر كامل العرض", "Full-width button"), L("زران", "Two buttons")),
     BlockKind.FOOTER to listOf(L("شريط تبويبات", "Tab bar"), L("فوتر نصي", "Text footer")),
+    BlockKind.CUSTOM to listOf(L("صف أيقونات ونصوص", "Icon row"), L("قائمة عناصر وأسعار", "Item list"), L("شبكة بطاقات", "Card grid")),
 )
 
 /** A new block filled with sensible copy in the current language. */
@@ -211,6 +213,10 @@ fun defaultBlock(kind: BlockKind, variant: Int, p: AppProject, lang: Lang): Bloc
         BlockKind.BUTTON -> Block(
             kind = kind, variant = variant, button = s("اطلب الآن", "Order now"),
             subtitle = if (variant == 1) s("لاحقاً", "Later") else "", padding = 16f, radius = 14f,
+        )
+        BlockKind.CUSTOM -> Block(
+            kind = kind, variant = variant, title = if (variant == 1) s("قائمة الأسعار", "Price list") else s("لماذا نحن؟", "Why us?"),
+            subtitle = s("ر.س", "$"), padding = 16f, radius = 16f,
         )
         BlockKind.FOOTER -> Block(
             kind = kind, variant = variant, title = p.name,
@@ -266,8 +272,14 @@ fun BlockView(b: Block, p: AppProject, modifier: Modifier = Modifier) {
 }
 
 /** Which kinds expose an editable list of items, and whether those items carry icons. */
-fun Block.hasItems() = kind == BlockKind.FOOTER || kind == BlockKind.LIST || kind == BlockKind.CATEGORIES || (kind == BlockKind.HEADER && variant == 5)
-fun Block.itemsHaveIcons() = (kind == BlockKind.FOOTER && variant == 0) || kind == BlockKind.LIST || kind == BlockKind.CATEGORIES
+fun Block.hasItems() = kind in setOf(BlockKind.FOOTER, BlockKind.LIST, BlockKind.CATEGORIES, BlockKind.HEADER, BlockKind.CARDS, BlockKind.CUSTOM)
+fun Block.itemsHaveIcons() = (kind == BlockKind.FOOTER && variant == 0) || kind == BlockKind.LIST || kind == BlockKind.CATEGORIES ||
+    (kind == BlockKind.HEADER && variant != 5) || kind == BlockKind.CUSTOM
+/** Header actions are icon-only. */
+fun Block.itemsHaveLabels() = !(kind == BlockKind.HEADER && variant != 5)
+/** A second text per item: a price or detail. */
+fun Block.itemsHaveValue() = kind == BlockKind.CARDS || kind == BlockKind.LIST || kind == BlockKind.CUSTOM
+fun Block.itemsHaveImage() = kind == BlockKind.CARDS || (kind == BlockKind.CUSTOM && variant == 2)
 fun Block.hasActiveItem() = (kind == BlockKind.FOOTER && variant == 0) || kind == BlockKind.CATEGORIES || (kind == BlockKind.HEADER && variant == 5)
 
 fun defaultItems(b: Block, lang: Lang): List<BlockItem> {
@@ -278,7 +290,22 @@ fun defaultItems(b: Block, lang: Lang): List<BlockItem> {
         BlockKind.LIST -> if (b.variant == 0) listOf(i("طلباتي", "My orders", "receipt"), i("العناوين", "Addresses", "location_on"), i("الدفع", "Payment", "credit_card"), i("المساعدة", "Help", "help"))
         else listOf(i("الإشعارات", "Notifications", "notifications"), i("العروض", "Offers", "star"), i("الموقع", "Location", "location_on"))
         BlockKind.CATEGORIES -> listOf(i("قهوة", "Coffee", "local_cafe"), i("شاي", "Tea", "emoji_food_beverage"), i("حلى", "Sweets", "cake"), i("بارد", "Cold", "icecream"))
-        BlockKind.HEADER -> listOf(i("الكل", "All"), i("جديد", "New"), i("عروض", "Deals"))
+        BlockKind.HEADER -> when (b.variant) {
+            5 -> listOf(i("الكل", "All"), i("جديد", "New"), i("عروض", "Deals"))
+            0 -> listOf(i("", "", "notifications"))
+            2 -> listOf(i("", "", "shopping_bag"))
+            3 -> listOf(i("", "", "search"))
+            else -> emptyList()
+        }
+        BlockKind.CARDS -> listOf(
+            BlockItem(if (lang == Lang.AR) "كلاسيك" else "Classic", value = "18"), BlockItem(if (lang == Lang.AR) "مميّز" else "Signature", value = "20"),
+            BlockItem(if (lang == Lang.AR) "بارد" else "Iced", value = "22"), BlockItem(if (lang == Lang.AR) "موسمي" else "Seasonal", value = "25"),
+        ).let { if (b.variant == 2) it.take(1) else if (b.variant == 1) it.take(2) else it.take(2) }
+        BlockKind.CUSTOM -> when (b.variant) {
+            1 -> listOf(i("قهوة عربية", "Arabic coffee", "local_cafe").copy(value = "12"), i("لاتيه", "Latte", "coffee").copy(value = "16"), i("كرواسون", "Croissant", "bakery_dining").copy(value = "9"))
+            2 -> listOf(i("توصيل سريع", "Fast delivery", "local_shipping"), i("دفع آمن", "Secure pay", "lock"), i("دعم 24/7", "24/7 support", "support_agent"), i("نقاط ولاء", "Rewards", "redeem"))
+            else -> listOf(i("توصيل سريع", "Fast delivery", "local_shipping"), i("دفع آمن", "Secure pay", "lock"), i("دعم 24/7", "24/7 support", "support_agent"))
+        }
         else -> emptyList()
     }
 }
@@ -303,12 +330,12 @@ private fun BlockContent(b: Block, p: AppProject, modifier: Modifier) {
                 0 -> {
                     if (p.applyIdentity) LogoMark(p, 34.dp) else PText(b.title, t, 18, bold = true)
                     Spacer(Modifier.weight(1f))
-                    RoundIcon(Icons.Rounded.Notifications, t)
+                    HeaderActions(b, t, lang)
                 }
                 1 -> {
                     RoundIcon(Icons.AutoMirrored.Rounded.ArrowBack, t)
                     PText(b.title, t, 18, bold = true, align = TextAlign.Center, modifier = Modifier.weight(1f))
-                    Spacer(Modifier.size(36.dp))
+                    if (b.itemsOr(lang).isEmpty()) Spacer(Modifier.size(36.dp)) else HeaderActions(b, t, lang)
                 }
                 2 -> {
                     Box(Modifier.size(42.dp).clip(CircleShape).background(t.surface), contentAlignment = Alignment.Center) {
@@ -319,14 +346,15 @@ private fun BlockContent(b: Block, p: AppProject, modifier: Modifier) {
                         PText(b.subtitle, t, 12, t.muted)
                         PText(b.title, t, 17, bold = true)
                     }
-                    RoundIcon(Icons.Rounded.ShoppingBag, t)
+                    HeaderActions(b, t, lang)
                 }
                 3 -> {
                     PText(b.title, t, 22, bold = true, modifier = Modifier.weight(1f))
-                    RoundIcon(Icons.Rounded.Search, t)
+                    HeaderActions(b, t, lang)
                 }
                 4 -> Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     if (p.applyIdentity) LogoMark(p, 34.dp) else PText(b.title, t, 18, bold = true)
+                    Row(Modifier.align(Alignment.CenterEnd)) { HeaderActions(b, t, lang) }
                 }
                 else -> Column(Modifier.fillMaxWidth()) {
                     PText(b.title, t, 22, bold = true)
@@ -435,40 +463,50 @@ private fun BlockContent(b: Block, p: AppProject, modifier: Modifier) {
                 PText(b.title, t, 16, bold = true, align = ta, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(10.dp))
             }
+            val products = b.itemsOr(lang)
+            val imgMod = { m: Modifier -> m }
             when (b.variant) {
-                0 -> Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    listOf(0, 1).forEach { i ->
-                        Column(Modifier.weight(1f).clip(RoundedCornerShape(r)).background(t.card).padding(10.dp)) {
-                            Placeholder(t, if (b.itemHeight > 0) Modifier.fillMaxWidth().height(b.itemHeight.dp) else Modifier.fillMaxWidth().aspectRatio(1.3f), r * 0.7f, b.image)
-                            Spacer(Modifier.height(8.dp))
-                            PText(sampleItems[i].get(lang), t, 14, bold = true, maxLines = 1)
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                PText("${18 + i * 2} ${b.subtitle}", t, 13, t.accent, bold = true, modifier = Modifier.weight(1f))
-                                Box(Modifier.size(26.dp).clip(CircleShape).background(t.primary), contentAlignment = Alignment.Center) {
-                                    PText("+", t, 15, t.onPrimary, bold = true)
+                0 -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    products.chunked(2).forEach { pair ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            pair.forEach { item ->
+                                Column(Modifier.weight(1f).clip(RoundedCornerShape(r)).background(t.card).padding(10.dp)) {
+                                    Placeholder(t, if (b.itemHeight > 0) Modifier.fillMaxWidth().height(b.itemHeight.dp) else Modifier.fillMaxWidth().aspectRatio(1.3f), r * 0.7f, item.image.ifEmpty { b.image })
+                                    Spacer(Modifier.height(8.dp))
+                                    PText(item.label, t, 14, bold = true, maxLines = 1)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        PText(listOf(item.value, b.subtitle).filter { it.isNotBlank() }.joinToString(" "), t, 13, t.accent, bold = true, modifier = Modifier.weight(1f))
+                                        Box(Modifier.size(26.dp).clip(CircleShape).background(t.primary), contentAlignment = Alignment.Center) {
+                                            PText("+", t, 15, t.onPrimary, bold = true)
+                                        }
+                                    }
                                 }
                             }
+                            if (pair.size == 1) Spacer(Modifier.weight(1f))
                         }
                     }
                 }
                 1 -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    listOf(0, 1).forEach { i ->
+                    products.forEach { item ->
                         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(r)).background(t.card).padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Placeholder(t, Modifier.size(56.dp), r * 0.6f, b.image)
+                            Placeholder(t, imgMod(Modifier.size(if (b.itemHeight > 0) b.itemHeight.dp else 56.dp)), r * 0.6f, item.image.ifEmpty { b.image })
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
-                                PText(sampleItems[i + 2].get(lang), t, 14, bold = true)
-                                PText("${22 + i * 3} ${b.subtitle}", t, 13, t.accent)
+                                PText(item.label, t, 14, bold = true)
+                                PText(listOf(item.value, b.subtitle).filter { it.isNotBlank() }.joinToString(" "), t, 13, t.accent)
                             }
                             Icon(Icons.Rounded.Favorite, null, tint = t.accent, modifier = Modifier.size(18.dp))
                         }
                     }
                 }
-                else -> Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(r)).background(t.card)) {
-                    Placeholder(t, Modifier.fillMaxWidth().height(if (b.itemHeight > 0) b.itemHeight.dp else 130.dp), 0.dp, b.image)
-                    Column(Modifier.padding(14.dp), horizontalAlignment = hAlign) {
-                        PText(sampleItems[1].get(lang), t, 16, bold = true, align = ta)
-                        PText("4.9 ★ · 24 ${b.subtitle}", t, 13, t.muted, align = ta)
+                else -> {
+                    val item = products.firstOrNull() ?: BlockItem("")
+                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(r)).background(t.card)) {
+                        Placeholder(t, Modifier.fillMaxWidth().height(if (b.itemHeight > 0) b.itemHeight.dp else 130.dp), 0.dp, item.image.ifEmpty { b.image })
+                        Column(Modifier.padding(14.dp), horizontalAlignment = hAlign) {
+                            PText(item.label, t, 16, bold = true, align = ta)
+                            PText(listOf(item.value, b.subtitle).filter { it.isNotBlank() }.joinToString(" "), t, 13, t.muted, align = ta)
+                        }
                     }
                 }
             }
@@ -493,6 +531,7 @@ private fun BlockContent(b: Block, p: AppProject, modifier: Modifier) {
                             Spacer(Modifier.width(12.dp))
                         }
                         PText(item.label, t, 14, modifier = Modifier.weight(1f))
+                        if (item.value.isNotBlank()) { PText(item.value, t, 13, t.accent, bold = true); Spacer(Modifier.width(6.dp)) }
                         if (b.variant == 0) Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = t.muted, modifier = Modifier.size(20.dp))
                         else Box(Modifier.width(38.dp).height(22.dp).clip(CircleShape).background(if (i != 1) t.primary else t.surface), contentAlignment = if (i != 1) Alignment.CenterEnd else Alignment.CenterStart) {
                             Box(Modifier.padding(3.dp).size(16.dp).clip(CircleShape).background(Color.White))
@@ -544,6 +583,61 @@ private fun BlockContent(b: Block, p: AppProject, modifier: Modifier) {
             }
         }
 
+        BlockKind.CUSTOM -> Column(box.padding(horizontal = pad, vertical = pad * 0.5f), horizontalAlignment = hAlign) {
+            if (b.title.isNotBlank()) {
+                PText(b.title, t, 16, bold = true, align = ta, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(10.dp))
+            }
+            val items = b.itemsOr(lang)
+            val price = { v: String -> listOf(v, if (v.isNotBlank()) b.subtitle else "").filter { it.isNotBlank() }.joinToString(" ") }
+            when (b.variant) {
+                0 -> Row(Modifier.fillMaxWidth()) {
+                    items.forEach { item ->
+                        Column(Modifier.weight(1f).padding(horizontal = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            val s = if (b.itemHeight > 0) b.itemHeight.dp else 52.dp
+                            Box(Modifier.size(s).clip(RoundedCornerShape(r)).background(t.surface), contentAlignment = Alignment.Center) {
+                                if (item.icon.isNotEmpty()) FontIcon(item.icon, t.primary, s.value * 0.48f)
+                            }
+                            Spacer(Modifier.height(6.dp))
+                            PText(item.label, t, 12, bold = true, align = TextAlign.Center, maxLines = 2)
+                            if (item.value.isNotBlank()) PText(price(item.value), t, 11, t.accent, align = TextAlign.Center)
+                        }
+                    }
+                }
+                1 -> Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(r)).background(t.card)) {
+                    items.forEachIndexed { i, item ->
+                        Row(Modifier.fillMaxWidth().heightIn(min = b.itemHeight.dp).padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            if (item.icon.isNotEmpty()) {
+                                Box(Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(t.surface), contentAlignment = Alignment.Center) { FontIcon(item.icon, t.primary, 19f) }
+                                Spacer(Modifier.width(12.dp))
+                            }
+                            PText(item.label, t, 14, modifier = Modifier.weight(1f))
+                            PText(price(item.value), t, 14, t.accent, bold = true)
+                        }
+                        if (i < items.lastIndex) Box(Modifier.fillMaxWidth().padding(horizontal = 14.dp).height(1.dp).background(t.ink.copy(alpha = 0.06f)))
+                    }
+                }
+                else -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items.chunked(2).forEach { pair ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            pair.forEach { item ->
+                                Column(Modifier.weight(1f).clip(RoundedCornerShape(r)).background(t.card).padding(12.dp), horizontalAlignment = hAlign) {
+                                    if (item.image.isNotEmpty()) Placeholder(t, Modifier.fillMaxWidth().height(if (b.itemHeight > 0) b.itemHeight.dp else 84.dp), r * 0.6f, item.image)
+                                    else Box(Modifier.size(42.dp).clip(CircleShape).background(t.surface), contentAlignment = Alignment.Center) {
+                                        if (item.icon.isNotEmpty()) FontIcon(item.icon, t.primary, 22f)
+                                    }
+                                    Spacer(Modifier.height(8.dp))
+                                    PText(item.label, t, 13, bold = true, align = ta)
+                                    if (item.value.isNotBlank()) PText(price(item.value), t, 12, t.accent, align = ta)
+                                }
+                            }
+                            if (pair.size == 1) Spacer(Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+        }
+
         BlockKind.FOOTER -> if (b.variant == 0) Row(
             box.background(bg ?: Color.White).padding(vertical = pad + 2.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -568,6 +662,17 @@ private fun BlockContent(b: Block, p: AppProject, modifier: Modifier) {
             }
             Spacer(Modifier.height(10.dp))
             PText(b.subtitle, t, 11, on.copy(alpha = 0.6f), align = ta, modifier = Modifier.fillMaxWidth())
+        }
+    }
+}
+
+@Composable
+private fun HeaderActions(b: Block, t: PTheme, lang: Lang) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        b.itemsOr(lang).forEach { item ->
+            Box(Modifier.size(36.dp).clip(CircleShape).background(t.surface), contentAlignment = Alignment.Center) {
+                FontIcon(item.icon.ifEmpty { "circle" }, t.primary, 19f)
+            }
         }
     }
 }

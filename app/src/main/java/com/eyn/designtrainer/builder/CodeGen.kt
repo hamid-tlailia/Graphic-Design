@@ -85,7 +85,7 @@ $screens
     }
 
     private fun htmlBlock(b: Block, p: AppProject, s0: Sample, lang: Lang): String {
-        val s = s0.copy(cats = b.labels(lang, s0.cats), rows = b.labels(lang, s0.rows), tabs = b.labels(lang, s0.tabs))
+        val s = s0.copy(cats = b.labels(lang, s0.cats), rows = b.labels(lang, s0.rows), tabs = b.labels(lang, s0.tabs), items = if (b.kind == BlockKind.CARDS) b.labels(lang, s0.items) else s0.items)
         val pal = palette(p)
         val r = "${b.radius.toInt()}px"
         val bg = b.bg?.let { "background:${it.hex()};" } ?: ""
@@ -121,6 +121,8 @@ $screens
                 "<button class=\"btn\" style=\"width:100%;border-radius:$r\">$btn</button></form>"
             BlockKind.BUTTON -> "<div $wrap><div class=\"row\">" + (if (b.variant == 1) "<a class=\"btn ghost grow\" style=\"border-radius:$r\">$sub</a>" else "") +
                 "<a class=\"btn grow\" style=\"border-radius:$r\">$btn</a></div></div>"
+            BlockKind.CUSTOM -> "<section $wrap><h3 style=\"margin-bottom:10px\">$t</h3><div class=\"list card\" style=\"border-radius:$r;padding:0\">" +
+                b.itemsOr(lang).joinToString("") { "<div class=\"row\"><span class=\"grow\">${esc(it.label)}</span><b style=\"color:var(--accent)\">${esc(it.value)}</b></div>" } + "</div></section>"
             BlockKind.FOOTER -> if (b.variant == 0) "<nav class=\"tabs\" style=\"$bg\">" + s.tabs.mapIndexed { i, n -> "<span${if (i == 0) " class=\"on\"" else ""}>${esc(n)}</span>" }.joinToString("") + "</nav>"
             else "<footer $wrap style=\"background:${b.bg?.hex() ?: pal.primary.hex()};color:#fff;padding:${b.padding.toInt()}px\"><h3>$t</h3><p class=\"muted\" style=\"margin-top:8px;font-size:11px\">$sub</p></footer>"
         }
@@ -183,7 +185,7 @@ const s = StyleSheet.create({
     }
 
     private fun rnBlock(b: Block, s0: Sample, lang: Lang): String {
-        val s = s0.copy(cats = b.labels(lang, s0.cats), rows = b.labels(lang, s0.rows), tabs = b.labels(lang, s0.tabs))
+        val s = s0.copy(cats = b.labels(lang, s0.cats), rows = b.labels(lang, s0.rows), tabs = b.labels(lang, s0.tabs), items = if (b.kind == BlockKind.CARDS) b.labels(lang, s0.items) else s0.items)
         val pad = "paddingHorizontal: ${b.padding.toInt()}, paddingVertical: ${(b.padding * 0.5f).toInt()}"
         val bg = b.bg?.let { ", backgroundColor: '${it.hex()}'" } ?: ""
         val r = b.radius.toInt()
@@ -209,6 +211,8 @@ const s = StyleSheet.create({
                 (if (b.variant == 0) s.login else s.contact).joinToString("") { "<TextInput style={[s.field, { borderRadius: $r }]} placeholder={'${js(it)}'} />" } +
                 "<TouchableOpacity style={[s.btn, { borderRadius: $r }]}><Text style={s.btnText}>{'$btn'}</Text></TouchableOpacity></View>"
             BlockKind.BUTTON -> "$view<TouchableOpacity style={[s.btn, { borderRadius: $r }]}><Text style={s.btnText}>{'$btn'}</Text></TouchableOpacity></View>"
+            BlockKind.CUSTOM -> "$view<Text style={[s.h2, { marginBottom: 10 }]}>{'$t'}</Text>" +
+                b.itemsOr(lang).joinToString("") { "<View style={s.row}><Text style={[s.p, { flex: 1, opacity: 1 }]}>{'${js(it.label)}'}</Text><Text style={{ color: C.accent, fontWeight: '700' }}>{'${js(it.value)}'}</Text></View>" } + "</View>"
             BlockKind.FOOTER -> if (b.variant == 0) "<View style={[s.row, { justifyContent: 'space-around', backgroundColor: '#fff', paddingVertical: 12 }]}>" +
                 s.tabs.joinToString("") { "<Text style={{ fontSize: 11, color: C.ink }}>{'${js(it)}'}</Text>" } + "</View>"
             else "<View style={{ backgroundColor: ${b.bg?.let { "'${it.hex()}'" } ?: "C.primary"}, padding: ${b.padding.toInt()} }}><Text style={[s.h2, { color: '#fff' }]}>{'$t'}</Text><Text style={{ color: '#fff', opacity: 0.6, fontSize: 11 }}>{'$sub'}</Text></View>"

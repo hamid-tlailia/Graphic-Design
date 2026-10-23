@@ -41,6 +41,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.AddPhotoAlternate
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
@@ -703,6 +704,16 @@ private fun BlockEditSheet(b: Block, p: AppProject, onChange: (Block) -> Unit, o
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val t = p.theme()
     val lang = LocalLang.current
+    var pendingItem by remember { mutableStateOf(-1) }
+    val itemPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        val i = pendingItem
+        if (uri != null && i >= 0) scope.launch {
+            Photos.import(ctx, uri)?.let { path ->
+                val items = latest.itemsOr(lang).toMutableList()
+                if (i < items.size) { items[i] = items[i].copy(image = path); onChange(latest.copy(items = items)) }
+            }
+        }
+    }
     var iconFor by remember { mutableStateOf<Int?>(null) }
     // statusBarsPadding keeps the sheet (and its handle) below the phone's status bar.
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = c.surface, modifier = Modifier.statusBarsPadding()) {
@@ -743,7 +754,10 @@ private fun BlockEditSheet(b: Block, p: AppProject, onChange: (Block) -> Unit, o
                         BlockKind.FOOTER -> if (b.variant == 0) tr("أزرار شريط التبويبات", "Tab bar items") else tr("الروابط", "Links")
                         BlockKind.LIST -> tr("صفوف القائمة", "List rows")
                         BlockKind.CATEGORIES -> tr("الأقسام", "Categories")
-                        else -> tr("التبويبات", "Tabs")
+                        BlockKind.CARDS -> tr("المنتجات (الاسم والسعر والصورة)", "Products (name, price, photo)")
+                        BlockKind.CUSTOM -> tr("العناصر (أيقونة ونص وسعر)", "Items (icon, text, price)")
+                        BlockKind.HEADER -> if (b.variant == 5) tr("التبويبات", "Tabs") else tr("أيقونات الهيدر", "Header icons")
+                        else -> tr("العناصر", "Items")
                     },
                 )
                 if (b.hasActiveItem()) Text(
@@ -751,7 +765,10 @@ private fun BlockEditSheet(b: Block, p: AppProject, onChange: (Block) -> Unit, o
                     style = Type.small, color = c.muted, modifier = Modifier.padding(bottom = 6.dp),
                 )
                 items.forEachIndexed { i, item ->
-                    Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(14.dp)).background(c.surfaceAlt).padding(8.dp),
+                    ) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         if (b.hasActiveItem()) {
                             val on = i == b.active
                             Box(
@@ -767,17 +784,47 @@ private fun BlockEditSheet(b: Block, p: AppProject, onChange: (Block) -> Unit, o
                             ) { FontIcon(item.icon.ifEmpty { "add" }, c.onLilac, 22f, style = p.iconStyle) }
                             Spacer(Modifier.width(8.dp))
                         }
-                        OutlinedTextField(
-                            item.label, { v -> setItems(items.toMutableList().also { it[i] = item.copy(label = v.take(24)) }) },
+                        if (b.itemsHaveImage()) {
+                            Box(
+                                Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(c.surface).border(1.dp, c.outline, RoundedCornerShape(12.dp)).clickable {
+                                    pendingItem = i; itemPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                if (item.image.isNotEmpty()) PhotoImage(item.image, 0, Modifier.matchParentSize())
+                                else Icon(Icons.Rounded.AddPhotoAlternate, null, tint = c.muted, modifier = Modifier.size(22.dp))
+                            }
+                            Spacer(Modifier.width(8.dp))
+                        }
+                        if (b.itemsHaveLabels()) OutlinedTextField(
+                            item.label, { v -> setItems(items.toMutableList().also { it[i] = item.copy(label = v.take(30)) }) },
                             singleLine = true, shape = RoundedCornerShape(12.dp), modifier = Modifier.weight(1f),
-                        )
-                        if (items.size > 1) Box(Modifier.size(40.dp).clip(CircleShape).clickable {
+                            placeholder = { Text(tr("النص", "Text")) },
+                        ) else Text(item.icon, style = Type.small, color = c.muted, modifier = Modifier.weight(1f))
+                        if (items.size > 1 || !b.itemsHaveLabels()) Box(Modifier.size(40.dp).clip(CircleShape).clickable {
                             setItems(items.toMutableList().also { it.removeAt(i) }, if (b.active >= i && b.active > 0) b.active - 1 else b.active)
                         }, contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Delete, null, tint = c.danger, modifier = Modifier.size(20.dp)) }
                     }
+                    if (b.itemsHaveValue()) {
+                        Spacer(Modifier.height(6.dp))
+                        OutlinedTextField(
+                            item.value, { v -> setItems(items.toMutableList().also { it[i] = item.copy(value = v.take(20)) }) },
+                            singleLine = true, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text(if (b.kind == BlockKind.LIST) tr("قيمة اختيارية (مثل السعر)", "Optional value (e.g. price)") else tr("السعر", "Price")) },
+                        )
+                    }
+                    }
                 }
-                if (items.size < 6) OptionChip(tr("+ إضافة عنصر", "+ Add item"), false) {
-                    setItems(items + BlockItem(tr0(lang, "عنصر جديد", "New item"), if (b.itemsHaveIcons()) "star" else ""))
+                val max = if (b.kind == BlockKind.CARDS || b.kind == BlockKind.CUSTOM) 12 else 6
+                if (items.size < max) OptionChip(
+                    when {
+                        !b.itemsHaveLabels() -> tr("+ إضافة أيقونة", "+ Add icon")
+                        b.kind == BlockKind.CARDS -> tr("+ إضافة منتج", "+ Add product")
+                        else -> tr("+ إضافة عنصر", "+ Add item")
+                    }, false,
+                ) {
+                    val label = if (b.itemsHaveLabels()) tr0(lang, "عنصر جديد", "New item") else ""
+                    setItems(items + BlockItem(label, if (b.itemsHaveIcons()) "star" else "", value = if (b.itemsHaveValue() && b.kind != BlockKind.LIST) "10" else ""))
                 }
             }
 
@@ -860,4 +907,5 @@ private fun fieldsFor(b: Block): List<Pair<String, Int>> = when (b.kind) {
     BlockKind.FORM -> listOf(tr("العنوان", "Title") to 0, tr("نص الزر", "Button text") to 2)
     BlockKind.BUTTON -> listOfNotNull(tr("نص الزر", "Button text") to 2, if (b.variant == 1) tr("الزر الثانوي", "Secondary button") to 1 else null)
     BlockKind.FOOTER -> if (b.variant == 1) listOf(tr("العنوان", "Title") to 0, tr("حقوق النشر", "Copyright") to 1) else emptyList()
+    BlockKind.CUSTOM -> listOf(tr("العنوان", "Title") to 0, tr("العملة (تُضاف بعد الأسعار)", "Currency (after prices)") to 1)
 }

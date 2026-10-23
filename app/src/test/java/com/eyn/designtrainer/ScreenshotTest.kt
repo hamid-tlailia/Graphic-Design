@@ -51,7 +51,16 @@ class ScreenshotTest {
         val withPages = proj.copy(
             pages = listOf(
                 starterPage(proj, lang, if (lang == Lang.AR) "الرئيسية" else "Home").copy(id = "pg1"),
-                Page(id = "pg2", name = if (lang == Lang.AR) "القائمة" else "Menu"),
+                Page(
+                    id = "pg2", name = if (lang == Lang.AR) "القائمة" else "Menu",
+                    blocks = listOf(
+                        com.eyn.designtrainer.builder.defaultBlock(com.eyn.designtrainer.data.BlockKind.HEADER, 3, proj, lang)
+                            .copy(items = listOf(com.eyn.designtrainer.data.BlockItem("", "search"), com.eyn.designtrainer.data.BlockItem("", "shopping_cart"))),
+                        com.eyn.designtrainer.builder.defaultBlock(com.eyn.designtrainer.data.BlockKind.CUSTOM, 0, proj, lang),
+                        com.eyn.designtrainer.builder.defaultBlock(com.eyn.designtrainer.data.BlockKind.CUSTOM, 1, proj, lang),
+                        com.eyn.designtrainer.builder.defaultBlock(com.eyn.designtrainer.data.BlockKind.CUSTOM, 2, proj, lang),
+                    ),
+                ),
             ),
         )
         return AppData(
@@ -160,5 +169,6 @@ class ScreenshotTest {
     @Test fun s36_canvas_size() = shot("36_canvas_size", Routes.canvas("d2")) { click("الألوان"); click("جوال 360") }
     @Test fun s37_identity_icons() = shot("37_identity_icons", Routes.identity("p1")) { click("محدد") }
     @Test fun s38_saved() = shot("38_saved", Routes.LESSONS) { click("كل الدروس"); click("المحفوظة") }
+    @Test fun s39_custom_blocks() = shot("39_custom_blocks", Routes.build("p1")) { click("القائمة") }
     @Test fun s23_build_dark() = shot("23_build_dark", Routes.build("p1"), dark = true)
 }
