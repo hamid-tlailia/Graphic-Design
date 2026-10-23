@@ -5,7 +5,7 @@ An Android app that teaches graphic design, plus a builder for ready-made UI blo
 
 **Kotlin · Jetpack Compose · Material 3 · Arabic (RTL) & English · Auto / light / dark theme**
 
-📦 Ready-to-install APK: [`release/eyn-1.3.0.apk`](release/eyn-1.3.0.apk)
+📦 Ready-to-install APK: [`release/eyn-1.3.1.apk`](release/eyn-1.3.1.apk)
 
 | Home | Challenge | Lesson | Studio | Page builder | Canvas editor |
 |---|---|---|---|---|---|
@@ -74,7 +74,7 @@ Ready templates: buttons, cards, headers, footers, login/sign-up, landing pages 
 - **Content and text**: font (IBM Plex / Cairo / Tajawal), bold, italic, underline, horizontal and vertical alignment, horizontal/vertical padding, line height, letter spacing.
 - **Style**: fill, gradient (3 directions), text/icon color, border, corner radius, shadow, opacity, copy/paste style.
 - **Real photos** from the phone (system photo picker, no permission needed) inside images, avatars, shapes, cards, buttons and the canvas background, with fill/fit modes.
-- **All 2,100+ Material icons** with search in Arabic and English.
+- **All 2,100+ Material icons** with search in Arabic and English, in **5 styles**: solid, outlined, rounded, sharp and two-tone (per element, and per project in the identity screen).
 - Rotation, lock, show/hide, layers, z-order (forward, backward, to front, to back), duplicate, undo/redo, zoom.
 - The properties panel stays above the keyboard while you type.
 - **Background removal** from photos (on-device, ML Kit), then a new color, gradient or photo behind the subject.

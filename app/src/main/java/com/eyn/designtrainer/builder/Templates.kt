@@ -305,7 +305,7 @@ fun logoDesign(p: com.eyn.designtrainer.data.AppProject, lang: Lang): Design {
             bg = if (p.logoShape == 2) CLEAR else pal.primary, radius = if (p.logoShape == 0) 48f else 0f,
         )
         val onMark = if (p.logoShape == 2) pal.primary else WHITE
-        els += if (p.logoStyle == 0) El(type = ElType.ICON, x = markX + 36, y = markY + 36, w = 88f, h = 88f, fg = onMark, icon = p.logoIcon)
+        els += if (p.logoStyle == 0) El(type = ElType.ICON, x = markX + 36, y = markY + 36, w = 88f, h = 88f, fg = onMark, icon = p.logoIcon, iconStyle = p.iconStyle)
         else El(type = ElType.TEXT, x = markX, y = markY, w = mark, h = mark, text = p.name.trim().take(1), fg = onMark, fontSize = 80f, bold = true, align = 1, font = font)
     }
     val textX = if (stacked) 40f else markX + mark + 30f

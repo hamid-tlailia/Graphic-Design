@@ -205,7 +205,7 @@ fun SettingsScreen() {
                 Text(tr("عن التطبيق", "About"), style = Type.label, color = c.text)
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    tr("عين · مدرّب التصميم. درّب عينك، صمّم بثقة.\nالإصدار 1.3.0", "Eyn · Design Trainer. Train your eye, design with confidence.\nVersion 1.3.0"),
+                    tr("عين · مدرّب التصميم. درّب عينك، صمّم بثقة.\nالإصدار 1.3.1", "Eyn · Design Trainer. Train your eye, design with confidence.\nVersion 1.3.1"),
                     style = Type.small, color = c.muted,
                 )
             }

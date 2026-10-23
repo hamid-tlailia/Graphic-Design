@@ -80,6 +80,7 @@ data class El(
     val fit: Int = 0,           // 0 crop, 1 fit
     val value: Float = 0.6f,    // progress / slider / rating / toggle / checkbox state
     val locked: Boolean = false,
+    val iconStyle: Int = 0,     // IconFont style: 0 rounded, 1 solid, 2 outlined, 3 sharp, 4 two-tone
 )
 
 @Serializable
@@ -143,6 +144,7 @@ data class AppProject(
     val logoScale: Float = 1f,
     val logoSpacing: Float = 0f,
     val tagline: String = "",
+    val iconStyle: Int = 0, // IconFont style used across the app's blocks
     val applyIdentity: Boolean = true,
     val pages: List<Page> = emptyList(),
     val updated: Long = System.currentTimeMillis(),

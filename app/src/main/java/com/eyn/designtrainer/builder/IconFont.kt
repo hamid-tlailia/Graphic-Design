@@ -6,19 +6,41 @@ import androidx.compose.ui.text.font.FontFamily
 import com.eyn.designtrainer.R
 
 /** The full Material Icons (Round) set, rendered from a font so every icon is available. */
+/** Icon style for [FontIcon]s below; projects and canvas elements set it. */
+val LocalIconStyle = androidx.compose.runtime.compositionLocalOf { 0 }
+
+/** The full Material Icons set in five styles, rendered from fonts so every icon is available. */
 object IconFont {
-    val family = FontFamily(Font(R.font.material_icons_round))
+    data class Style(val label: com.eyn.designtrainer.i18n.L, val res: Int, val codepoints: String)
 
-    @Volatile private var map: Map<String, String>? = null
+    val styles = listOf(
+        Style(com.eyn.designtrainer.i18n.L("مستدير", "Rounded"), R.font.material_icons_round, "icons.codepoints"),
+        Style(com.eyn.designtrainer.i18n.L("ممتلئ", "Solid"), R.font.material_icons_filled, "icons_filled.codepoints"),
+        Style(com.eyn.designtrainer.i18n.L("محدد", "Outlined"), R.font.material_icons_outlined, "icons_outlined.codepoints"),
+        Style(com.eyn.designtrainer.i18n.L("حاد", "Sharp"), R.font.material_icons_sharp, "icons_sharp.codepoints"),
+        Style(com.eyn.designtrainer.i18n.L("لونين", "Two-tone"), R.font.material_icons_twotone, "icons_twotone.codepoints"),
+    )
 
-    /** name → glyph, loaded once from assets. */
-    fun all(ctx: Context): Map<String, String> = map ?: synchronized(this) {
-        map ?: ctx.assets.open("icons.codepoints").bufferedReader().useLines { lines ->
-            lines.mapNotNull { line ->
-                val parts = line.trim().split(' ')
-                if (parts.size != 2) null else parts[0] to String(Character.toChars(parts[1].toInt(16)))
-            }.toMap(LinkedHashMap())
-        }.also { map = it }
+    private val families = styles.map { FontFamily(Font(it.res)) }
+
+    fun family(style: Int = 0): FontFamily = families.getOrElse(style) { families[0] }
+
+    val family: FontFamily get() = families[0]
+
+    private val maps = arrayOfNulls<Map<String, String>>(styles.size)
+
+    /** name → glyph for a style, loaded once from assets. */
+    fun all(ctx: Context, style: Int = 0): Map<String, String> {
+        val i = style.coerceIn(styles.indices)
+        maps[i]?.let { return it }
+        return synchronized(this) {
+            maps[i] ?: ctx.assets.open(styles[i].codepoints).bufferedReader().useLines { lines ->
+                lines.mapNotNull { line ->
+                    val parts = line.trim().split(' ')
+                    if (parts.size != 2) null else parts[0] to String(Character.toChars(parts[1].toInt(16)))
+                }.toMap(LinkedHashMap())
+            }.also { maps[i] = it }
+        }
     }
 
     /** Names used by older designs before the full set existed. */
@@ -27,7 +49,7 @@ object IconFont {
         "chart" to "show_chart", "arrow_fwd" to "arrow_forward",
     )
 
-    fun glyph(ctx: Context, name: String): String? = all(ctx)[legacy[name] ?: name]
+    fun glyph(ctx: Context, name: String, style: Int = 0): String? = all(ctx, style)[legacy[name] ?: name]
 
     /** Arabic words → English icon keywords, so Arabic search finds icons too. */
     private val arabic = mapOf(
@@ -49,9 +71,9 @@ object IconFont {
         "إيقاف" to "pause", "رسم" to "draw", "لون" to "palette", "ألوان" to "palette", "نص" to "text", "خط" to "font",
     )
 
-    fun search(ctx: Context, query: String): List<Pair<String, String>> {
+    fun search(ctx: Context, query: String, style: Int = 0): List<Pair<String, String>> {
         val q = query.trim().lowercase()
-        val all = all(ctx)
+        val all = all(ctx, style)
         if (q.isEmpty()) return all.toList()
         val terms = buildSet {
             add(q.replace(' ', '_'))

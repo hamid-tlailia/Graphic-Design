@@ -662,7 +662,10 @@ fun CanvasEditorScreen(id: String) {
 
     if (pickingIcon) {
         state.selected?.let { e ->
-            IconPickerSheet(e.icon, onDismiss = { pickingIcon = false }) { name ->
+            IconPickerSheet(
+                e.icon, onDismiss = { pickingIcon = false }, style = e.iconStyle,
+                onStyle = { st -> state.updateEl(e.id) { it.copy(iconStyle = st) } },
+            ) { name ->
                 state.updateEl(e.id) { it.copy(icon = name) }
                 pickingIcon = false
             }
@@ -1139,6 +1142,8 @@ private fun ContentPanel(state: EditorState, onPickIcon: () -> Unit) {
         }
         Spacer(Modifier.height(10.dp))
         ActionChip(tr("اختر من كل الأيقونات (+2000) مع البحث", "Browse all 2000+ icons with search"), Icons.Rounded.Search) { onPickIcon() }
+        PanelLabel(tr("نمط الأيقونة", "Icon style"))
+        IconStyleRow(e.iconStyle, sample = e.icon.ifBlank { "favorite" }) { i -> state.updateEl(e.id) { it.copy(iconStyle = i) } }
         return
     }
     if (e.type in VALUE_TYPES) {
@@ -1286,11 +1291,12 @@ private fun LayersPanel(state: EditorState) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun IconPickerSheet(current: String, onDismiss: () -> Unit, onPick: (String) -> Unit) {
+fun IconPickerSheet(current: String, onDismiss: () -> Unit, style: Int = LocalIconStyle.current, onStyle: ((Int) -> Unit)? = null, onPick: (String) -> Unit) {
     val c = Eyn.c
     val ctx = LocalContext.current
     var query by remember { mutableStateOf("") }
-    val results = remember(query) { IconFont.search(ctx, query) }
+    var shown by remember { mutableStateOf(style) }
+    val results = remember(query, shown) { IconFont.search(ctx, query, shown) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = c.surface) {
         Column(Modifier.fillMaxWidth().fillMaxHeight(0.85f).padding(horizontal = 16.dp).imePadding()) {
             Text(tr("كل الأيقونات", "All icons"), style = Type.h2, color = c.text)
@@ -1300,6 +1306,8 @@ fun IconPickerSheet(current: String, onDismiss: () -> Unit, onPick: (String) -> 
                 leadingIcon = { Icon(Icons.Rounded.Search, null) },
                 placeholder = { Text(tr("ابحث: بيت، قلب، home، cart…", "Search: home, heart, cart…")) },
             )
+            Spacer(Modifier.height(8.dp))
+            IconStyleRow(shown) { shown = it; onStyle?.invoke(it) }
             Text(tr("${results.size} أيقونة", "${results.size} icons"), style = Type.small, color = c.muted, modifier = Modifier.padding(vertical = 6.dp))
             LazyVerticalGrid(GridCells.Adaptive(56.dp), Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 items(results, key = { it.first }) { (name, glyph) ->
@@ -1308,9 +1316,29 @@ fun IconPickerSheet(current: String, onDismiss: () -> Unit, onPick: (String) -> 
                         Modifier.size(56.dp).clip(RoundedCornerShape(14.dp)).background(if (on) c.lilac else c.surfaceAlt).clickable { onPick(name) },
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(glyph, fontFamily = IconFont.family, fontSize = 26.sp, color = if (on) c.onLilac else c.text)
+                        Text(glyph, fontFamily = IconFont.family(shown), fontSize = 26.sp, color = if (on) c.onLilac else c.text)
                     }
                 }
+            }
+        }
+    }
+}
+
+/** Icon style chips: each previews the same icon in that style. */
+@Composable
+fun IconStyleRow(selected: Int, sample: String = "favorite", onSelect: (Int) -> Unit) {
+    val c = Eyn.c
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        IconFont.styles.forEachIndexed { i, st ->
+            val on = i == selected
+            Column(
+                Modifier.bounceClick { onSelect(i) }.clip(RoundedCornerShape(14.dp)).background(if (on) c.lilac else c.surfaceAlt)
+                    .border(if (on) 2.dp else 0.dp, if (on) c.primary else Color.Transparent, RoundedCornerShape(14.dp))
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                FontIcon(sample, if (on) c.onLilac else c.text, 24f, style = i)
+                Text(st.label.t(), style = Type.small.copy(fontSize = 11.sp), color = if (on) c.onLilac else c.muted)
             }
         }
     }

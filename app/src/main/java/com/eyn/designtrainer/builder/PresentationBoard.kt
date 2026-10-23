@@ -43,6 +43,11 @@ private const val SCREEN_H = 740
  */
 @Composable
 fun PresentationBoard(p: AppProject) {
+    androidx.compose.runtime.CompositionLocalProvider(LocalIconStyle provides p.iconStyle) { BoardContent(p) }
+}
+
+@Composable
+private fun BoardContent(p: AppProject) {
     val t = p.theme()
     val pal = p.colors()
     val lang = LocalLang.current

@@ -107,6 +107,11 @@ fun AppProject.theme(): PTheme {
 
 @Composable
 fun LogoMark(p: AppProject, size: Dp = 40.dp, showName: Boolean = true) {
+    CompositionLocalProvider(LocalIconStyle provides p.iconStyle) { LogoMarkContent(p, size, showName) }
+}
+
+@Composable
+private fun LogoMarkContent(p: AppProject, size: Dp, showName: Boolean) {
     val t = p.theme()
     val logoFamily = if (p.logoFont >= 0) fontAt(p.logoFont) else t.font
     val scale = p.logoScale
@@ -253,7 +258,7 @@ private val sampleItems = listOf(L("كلاسيك", "Classic"), L("مميّز", "
 fun BlockView(b: Block, p: AppProject, modifier: Modifier = Modifier) {
     val d = LocalDensity.current
     // Text size control: scale fonts inside this block only.
-    CompositionLocalProvider(LocalDensity provides Density(d.density, d.fontScale * b.textScale)) {
+    CompositionLocalProvider(LocalDensity provides Density(d.density, d.fontScale * b.textScale), LocalIconStyle provides p.iconStyle) {
         Box(modifier.fillMaxWidth(), contentAlignment = if (b.align == 1) Alignment.TopCenter else Alignment.TopStart) {
             BlockContent(b, p, Modifier.fillMaxWidth(b.widthPct.coerceIn(0.2f, 1f)).heightIn(min = b.minHeight.dp))
         }

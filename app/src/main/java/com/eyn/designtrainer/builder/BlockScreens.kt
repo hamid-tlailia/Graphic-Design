@@ -203,10 +203,12 @@ fun IdentityScreen(id: String) {
                             Modifier.size(46.dp).bounceClick { set { it.copy(logoIcon = k) } }.clip(RoundedCornerShape(14.dp))
                                 .background(if (on) t.primary else c.surface).border(1.dp, c.outline, RoundedCornerShape(14.dp)),
                             contentAlignment = Alignment.Center,
-                        ) { FontIcon(k, if (on) t.onPrimary else c.muted, 24f) }
+                        ) { FontIcon(k, if (on) t.onPrimary else c.muted, 24f, style = p.iconStyle) }
                     }
                 }
             }
+            Label(tr("نمط الأيقونات في التطبيق", "App icon style"))
+            IconStyleRow(p.iconStyle, sample = p.logoIcon) { i -> set { it.copy(iconStyle = i) } }
             AnimatedVisibility(p.logoStyle != 2, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
                 Column {
                     Label(tr("خلفية الرمز", "Mark background"))
@@ -308,7 +310,7 @@ fun IdentityScreen(id: String) {
             }
         }
     }
-    if (pickingIcon) IconPickerSheet(p.logoIcon, onDismiss = { pickingIcon = false }) { name ->
+    if (pickingIcon) IconPickerSheet(p.logoIcon, onDismiss = { pickingIcon = false }, style = p.iconStyle, onStyle = { st -> set { it.copy(iconStyle = st) } }) { name ->
         set { it.copy(logoIcon = name) }; pickingIcon = false
     }
     editingColor?.let { i ->
@@ -762,7 +764,7 @@ private fun BlockEditSheet(b: Block, p: AppProject, onChange: (Block) -> Unit, o
                             Box(
                                 Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(c.lilac).clickable { iconFor = i },
                                 contentAlignment = Alignment.Center,
-                            ) { FontIcon(item.icon.ifEmpty { "add" }, c.onLilac, 22f) }
+                            ) { FontIcon(item.icon.ifEmpty { "add" }, c.onLilac, 22f, style = p.iconStyle) }
                             Spacer(Modifier.width(8.dp))
                         }
                         OutlinedTextField(
@@ -821,7 +823,7 @@ private fun BlockEditSheet(b: Block, p: AppProject, onChange: (Block) -> Unit, o
     }
     iconFor?.let { i ->
         val items = b.itemsOr(lang)
-        IconPickerSheet(items.getOrNull(i)?.icon.orEmpty(), onDismiss = { iconFor = null }) { name ->
+        IconPickerSheet(items.getOrNull(i)?.icon.orEmpty(), onDismiss = { iconFor = null }, style = p.iconStyle) { name ->
             onChange(b.copy(items = items.toMutableList().also { if (i < it.size) it[i] = it[i].copy(icon = name) }))
             iconFor = null
         }

@@ -119,13 +119,17 @@ fun El.fill(): Brush? {
 
 /** Material icon glyph drawn from the icon font. */
 @Composable
-fun FontIcon(name: String, color: Color, sizeDp: Float, modifier: Modifier = Modifier) {
+fun FontIcon(name: String, color: Color, sizeDp: Float, modifier: Modifier = Modifier, style: Int = LocalIconStyle.current) {
     val ctx = LocalContext.current
-    val glyph = remember(name) { IconFont.glyph(ctx, name) } ?: return
+    // Fall back to the rounded set if this style lacks the icon.
+    val (glyph, used) = remember(name, style) {
+        IconFont.glyph(ctx, name, style)?.let { it to style } ?: IconFont.glyph(ctx, name, 0)?.let { it to 0 } ?: (null to 0)
+    }
+    if (glyph == null) return
     val fs = with(LocalDensity.current) { sizeDp.dp.toSp() }
     Text(
         glyph, modifier = modifier, color = color,
-        style = TextStyle(fontFamily = IconFont.family, fontSize = fs, lineHeight = fs, textAlign = TextAlign.Center),
+        style = TextStyle(fontFamily = IconFont.family(used), fontSize = fs, lineHeight = fs, textAlign = TextAlign.Center),
     )
 }
 
@@ -151,6 +155,7 @@ fun RenderEl(e: El, scale: Float, modifier: Modifier = Modifier) {
     val fill = e.fill()
     val hasBox = e.type !in setOf(ElType.TOGGLE, ElType.SLIDER, ElType.PROGRESS, ElType.RATING, ElType.CHECKBOX)
 
+    CompositionLocalProvider(LocalIconStyle provides e.iconStyle) {
     Box(
         Modifier
             .absoluteOffset((e.x * scale).dp, (e.y * scale).dp)
@@ -231,6 +236,7 @@ fun RenderEl(e: El, scale: Float, modifier: Modifier = Modifier) {
             }
             ElType.BOX, ElType.CARD, ElType.DIVIDER -> {}
         }
+    }
     }
 }
 
