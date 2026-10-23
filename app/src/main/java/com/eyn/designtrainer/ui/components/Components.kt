@@ -45,11 +45,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -327,22 +331,26 @@ fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, mod
     }
 }
 
-/** The brand mark: almond eye with a coral iris. */
+/** The brand mark: a pen nib drawing a curve. Drawn on a 120-unit square grid. */
 @Composable
-fun EyeLogo(modifier: Modifier = Modifier, stroke: Color = Eyn.c.hero, iris: Color = Eyn.c.accent, highlight: Color = Color.White) {
+fun BrandLogo(modifier: Modifier = Modifier, nib: Color = Eyn.c.hero, curve: Color = Eyn.c.accent, cut: Color = Color.White) {
     Canvas(modifier) {
-        val w = size.width
-        val h = size.height
-        val sw = w * 0.075f
-        val path = Path().apply {
-            moveTo(w * 0.06f, h / 2)
-            quadraticTo(w / 2, -h * 0.02f, w * 0.94f, h / 2)
-            quadraticTo(w / 2, h * 1.02f, w * 0.06f, h / 2)
-            close()
+        val k = size.minDimension / 120f
+        withTransform({ scale(k, k, pivot = Offset.Zero) }) {
+            val stroke = Path().apply { moveTo(18f, 92f); cubicTo(34f, 40f, 86f, 80f, 102f, 28f) }
+            drawPath(stroke, curve, style = Stroke(width = 5f, cap = StrokeCap.Round))
+            withTransform({
+                translate(60f, 60f); rotate(-35f, pivot = Offset.Zero)
+                translate(-50f, -56f); scale(0.82f, 0.82f, pivot = Offset.Zero); translate(11f, 6f)
+            }) {
+                val body = Path().apply { moveTo(30f, 36f); lineTo(70f, 36f); lineTo(70f, 54f); lineTo(50f, 92f); lineTo(30f, 54f); close() }
+                drawPath(body, nib)
+                drawPath(body, nib, style = Stroke(width = 4f, join = StrokeJoin.Round))
+                drawRoundRect(nib, topLeft = Offset(35f, 16f), size = Size(30f, 14f), cornerRadius = CornerRadius(5f))
+                drawLine(cut, Offset(50f, 64f), Offset(50f, 90f), strokeWidth = 3.5f, cap = StrokeCap.Round)
+                drawCircle(cut, 7f, Offset(50f, 58f))
+            }
         }
-        drawPath(path, stroke, style = Stroke(width = sw, join = StrokeJoin.Round))
-        drawCircle(iris, radius = w * 0.17f, center = Offset(w / 2, h / 2))
-        drawCircle(highlight, radius = w * 0.045f, center = Offset(w * 0.56f, h * 0.43f))
     }
 }
 

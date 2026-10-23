@@ -1,11 +1,11 @@
-# عين · Eyn — Design Trainer
+# ريشة · Risha — Design Trainer
 
-تطبيق أندرويد لتعليم التصميم الغرافيكي: «درّب عينك، صمّم بثقة».
+تطبيق أندرويد لتعليم التصميم الغرافيكي: «تعلّم، تدرّب، صمّم بثقة».
 An Android app that teaches graphic design, plus a builder for ready-made UI blocks and templates.
 
 **Kotlin · Jetpack Compose · Material 3 · Arabic (RTL) & English · Auto / light / dark theme**
 
-📦 Ready-to-install APK: [`release/eyn-1.4.1.apk`](release/eyn-1.4.1.apk)
+📦 Ready-to-install APK: [`release/risha-1.5.0.apk`](release/risha-1.5.0.apk)
 
 | Home | Challenge | Lesson | Studio | Page builder | Canvas editor |
 |---|---|---|---|---|---|

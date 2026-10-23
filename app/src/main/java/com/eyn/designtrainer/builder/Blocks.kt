@@ -78,7 +78,7 @@ data class AppPalette(val name: L, val primary: Long, val surface: Long, val acc
 
 val Palettes = listOf(
     AppPalette(L("قهوة", "Coffee"), 0xFF5A3A22, 0xFFF3E9DD, 0xFFC98B3C, 0xFFFBF8F4, 0xFF2B1D12),
-    AppPalette(L("عين", "Eyn"), 0xFF2A2470, 0xFFE8E5FA, 0xFFF2603F, 0xFFF7F6F2, 0xFF1D1A3F),
+    AppPalette(L("ريشة", "Risha"), 0xFF2A2470, 0xFFE8E5FA, 0xFFF2603F, 0xFFF7F6F2, 0xFF1D1A3F),
     AppPalette(L("نعناع", "Mint"), 0xFF0F766E, 0xFFDDF3EF, 0xFFF59E0B, 0xFFF6FBFA, 0xFF0B2E2B),
     AppPalette(L("وردي", "Rose"), 0xFF9D174D, 0xFFFCE7F0, 0xFF1E3A8A, 0xFFFFF8FA, 0xFF3B0A20),
 )

@@ -120,14 +120,14 @@ val Templates: List<Template> = listOf(
     t("hdr_appbar", Kind.HEADER, l("شريط تطبيق", "App bar"), 360, 88, CREAM) {
         box(0, 0, 360, 88, WHITE)
         circle(16, 24, 40, NAVY, WHITE, l("ع", "E"), 18)
-        txt(66, 24, 160, 22, l("استوديو عين", "Eyn Studio"), 16, INK, true)
+        txt(66, 24, 160, 22, l("استوديو ريشة", "Risha Studio"), 16, INK, true)
         txt(66, 46, 160, 18, l("مساء الخير", "Good evening"), 12, GRAY)
         icon(276, 30, 28, "search", INK)
         icon(316, 30, 28, "menu", INK)
         line(0, 87, 360)
     },
     t("hdr_hero", Kind.HEADER, l("هيدر رئيسي", "Hero header"), 360, 300, NAVY) {
-        txt(20, 24, 120, 28, l("عين", "Eyn"), 20, WHITE, true)
+        txt(20, 24, 120, 28, l("ريشة", "Risha"), 20, WHITE, true)
         icon(312, 24, 28, "menu", WHITE)
         txt(20, 80, 320, 76, l("تصميم يتحدث عن نفسه", "Design that speaks for itself"), 28, WHITE, true)
         txt(20, 162, 300, 44, l("تعلّم قواعد التصميم الجيد في دقيقة كل يوم.", "Learn the rules of great design in one minute a day."), 14, SOFT)
@@ -143,14 +143,14 @@ val Templates: List<Template> = listOf(
     },
     // ------------------------------------------------------------------ footers
     t("ftr_simple", Kind.FOOTER, l("فوتر بسيط", "Simple footer"), 360, 230, NAVY) {
-        txt(24, 28, 200, 28, l("عين", "Eyn"), 22, WHITE, true)
-        txt(24, 60, 300, 40, l("درّب عينك، صمّم بثقة.", "Train your eye, design with confidence."), 13, SOFT)
+        txt(24, 28, 200, 28, l("ريشة", "Risha"), 22, WHITE, true)
+        txt(24, 60, 300, 40, l("تعلّم، تدرّب، صمّم بثقة.", "Learn, practice, design with confidence."), 13, SOFT)
         txt(24, 112, 76, 20, l("من نحن", "About"), 13, WHITE)
         txt(104, 112, 76, 20, l("الدروس", "Lessons"), 13, WHITE)
         txt(184, 112, 76, 20, l("الاستوديو", "Studio"), 13, WHITE)
         txt(264, 112, 76, 20, l("تواصل", "Contact"), 13, WHITE)
         line(24, 152, 312, 0x33FFFFFF)
-        txt(24, 172, 230, 20, l("© 2026 عين. جميع الحقوق محفوظة.", "© 2026 Eyn. All rights reserved."), 11, 0xFF9C99C8)
+        txt(24, 172, 230, 20, l("© 2026 ريشة. جميع الحقوق محفوظة.", "© 2026 Risha. All rights reserved."), 11, 0xFF9C99C8)
         icon(276, 170, 22, "mail", WHITE)
         icon(310, 170, 22, "public", WHITE)
     },
@@ -196,7 +196,7 @@ val Templates: List<Template> = listOf(
         box(0, 0, 360, 64, WHITE)
         circle(16, 14, 36, NAVY)
         icon(24, 22, 20, "eye", WHITE)
-        txt(60, 20, 120, 24, l("عين", "Eyn"), 18, INK, true)
+        txt(60, 20, 120, 24, l("ريشة", "Risha"), 18, INK, true)
         btn(256, 14, 88, 36, NAVY, WHITE, l("انضم", "Join"), 13, 10)
         btn(24, 96, 160, 30, LILAC, NAVY, l("جديد · الإصدار 2", "New · v2.0"), 12, 15)
         txt(24, 140, 312, 84, l("تعلّم التصميم دقيقة كل يوم", "Learn design one minute a day"), 30, INK, true)
@@ -204,7 +204,7 @@ val Templates: List<Template> = listOf(
         btn(24, 292, 150, 50, CORAL, WHITE, l("ابدأ الآن", "Get started"), 15)
         btn(186, 292, 150, 50, CLEAR, NAVY, l("استكشف", "Explore"), 15, bw = 1.5, bc = NAVY)
         img(24, 370, 312, 220, 24)
-        txt(24, 624, 312, 30, l("لماذا عين؟", "Why Eyn?"), 22, INK, true)
+        txt(24, 624, 312, 30, l("لماذا ريشة؟", "Why Risha?"), 22, INK, true)
         val feats = listOf(
             Triple("bolt", l("تحديات يومية", "Daily challenges"), l("خمسة أسئلة سريعة كل يوم.", "Five quick questions every day.")),
             Triple("school", l("دروس قصيرة", "Short lessons"), l("تعلّم قاعدة في 5 دقائق.", "Learn a rule in 5 minutes.")),
@@ -219,7 +219,7 @@ val Templates: List<Template> = listOf(
             txt(104, y + 42, 216, 24, desc, 12, GRAY)
         }
         box(0, 972, 360, 128, NAVY)
-        txt(24, 990, 312, 30, l("جاهز لتدريب عينك؟", "Ready to train your eye?"), 20, WHITE, true)
+        txt(24, 990, 312, 30, l("جاهز لتطوير مهارتك؟", "Ready to level up?"), 20, WHITE, true)
         btn(24, 1036, 150, 44, CORAL, WHITE, l("حمّل الآن", "Download"), 14, 12)
     },
     t("landing_pricing", Kind.LANDING, l("قسم الأسعار", "Pricing section"), 360, 620, CREAM) {
@@ -244,7 +244,7 @@ val LogoTemplates: List<Template> = listOf(
     t("logo_icon_text", Kind.LOGO, l("أيقونة + اسم", "Icon + name"), 600, 600, CREAM) {
         box(60, 220, 160, 160, NAVY, 48)
         icon(96, 256, 88, "visibility", WHITE)
-        txt(250, 240, 320, 90, l("عين", "Eyn"), 72, NAVY, true)
+        txt(250, 240, 320, 90, l("ريشة", "Risha"), 72, NAVY, true)
         txt(250, 330, 320, 40, l("درّب عينك", "Train your eye"), 24, GRAY)
     },
     t("logo_badge", Kind.LOGO, l("شارة دائرية", "Round badge"), 600, 600, WHITE) {

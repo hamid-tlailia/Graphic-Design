@@ -187,12 +187,12 @@ fun LessonIllustration(ill: Ill, modifier: Modifier = Modifier) {
                 Box(Modifier.size((96 * g + 1).dp).clip(CircleShape).background(c.accent))
             }
             Ill.LOGO_TYPES -> Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Eyn", fontFamily = Plex, fontWeight = FontWeight.Bold, fontSize = 30.sp, color = c.onLilac.copy(alpha = g))
+                Text("Risha", fontFamily = Plex, fontWeight = FontWeight.Bold, fontSize = 30.sp, color = c.onLilac.copy(alpha = g))
                 Box(Modifier.size(54.dp).clip(CircleShape).background(c.onLilac), contentAlignment = Alignment.Center) {
-                    Text("ع", fontFamily = Plex, fontWeight = FontWeight.Bold, fontSize = 26.sp, color = c.lilac)
+                    Text("ر", fontFamily = Plex, fontWeight = FontWeight.Bold, fontSize = 26.sp, color = c.lilac)
                 }
                 Box(Modifier.size(54.dp).clip(RoundedCornerShape(16.dp)).background(c.accent), contentAlignment = Alignment.Center) {
-                    EyeLogo(Modifier.size(36.dp, 24.dp), stroke = Color.White, iris = c.onLilac)
+                    BrandLogo(Modifier.size(44.dp), nib = Color.White, curve = c.onLilac, cut = c.accent)
                 }
             }
             Ill.PRINT_MARKS -> Box(Modifier.size(200.dp, 140.dp), contentAlignment = Alignment.Center) {

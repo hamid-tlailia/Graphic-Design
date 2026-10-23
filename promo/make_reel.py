@@ -45,9 +45,13 @@ def data_uri(path: Path) -> str:
     return "data:image/png;base64," + base64.b64encode(path.read_bytes()).decode()
 
 
-EYE = f"""<svg viewBox="0 0 120 120" class="eye"><rect width="120" height="120" rx="34" fill="#fff"/>
-<path d="M18 60 Q60 22 102 60 Q60 98 18 60 Z" fill="none" stroke="{NAVY}" stroke-width="7" stroke-linejoin="round"/>
-<circle cx="60" cy="60" r="17" fill="{CORAL}"/><circle cx="66" cy="54" r="4.5" fill="#fff"/></svg>"""
+LOGO = f"""<svg viewBox="0 0 120 120" class="logo"><rect width="120" height="120" rx="34" fill="#fff"/>
+<path d="M18 92 C34 40 86 80 102 28" fill="none" stroke="{CORAL}" stroke-width="5" stroke-linecap="round"/>
+<g transform="translate(60 60) rotate(-35) translate(-50 -56) scale(0.82) translate(11 6)" fill="{NAVY}">
+<path d="M30 36 H70 V54 L50 92 L30 54 Z" stroke="{NAVY}" stroke-width="4" stroke-linejoin="round"/>
+<rect x="35" y="16" width="30" height="14" rx="5"/>
+<line x1="50" y1="64" x2="50" y2="90" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>
+<circle cx="50" cy="58" r="7" fill="#fff"/></g></svg>"""
 
 BASE_CSS = f"""
 {font_face()}
@@ -61,7 +65,7 @@ body{{font-family:'Tajawal','Plex',sans-serif;color:#fff;background:transparent}
 .en{{font-family:'Plex';font-weight:600}}
 .phone{{position:absolute;border-radius:78px;background:#0E0C24;padding:16px;box-shadow:0 40px 90px rgba(0,0,0,.45),0 0 0 2px rgba(255,255,255,.08) inset}}
 .phone img{{display:block;width:100%;border-radius:62px}}
-.eye{{width:100%;height:100%;filter:drop-shadow(0 24px 50px rgba(0,0,0,.35))}}
+.logo{{width:100%;height:100%;filter:drop-shadow(0 24px 50px rgba(0,0,0,.35))}}
 """
 
 
@@ -103,11 +107,11 @@ def caption(i, title, en, chip):
 def intro_html(shot):
     return page(f"""
 <div style="position:absolute;top:170px;left:0;right:0;text-align:center">
-  <div style="width:210px;height:210px;margin:0 auto">{EYE}</div>
-  <h1 style="font-size:150px;font-weight:800;line-height:1.1;margin-top:34px">عين</h1>
-  <p class="en" dir="ltr" style="font-size:44px;letter-spacing:6px;color:{LILAC}">EYN · DESIGN TRAINER</p>
-  <p style="font-size:46px;margin-top:30px;color:#fff">درّب عين المصمم فيك</p>
-  <p class="en" dir="ltr" style="font-size:32px;margin-top:8px;color:{LILAC}">Train your designer's eye</p>
+  <div style="width:210px;height:210px;margin:0 auto">{LOGO}</div>
+  <h1 style="font-size:150px;font-weight:800;line-height:1.1;margin-top:34px">ريشة</h1>
+  <p class="en" dir="ltr" style="font-size:44px;letter-spacing:6px;color:{LILAC}">RISHA · DESIGN TRAINER</p>
+  <p style="font-size:46px;margin-top:30px;color:#fff">طوّر مهارتك في التصميم</p>
+  <p class="en" dir="ltr" style="font-size:32px;margin-top:8px;color:{LILAC}">Grow your design skills</p>
 </div>
 {phones([shot], 560, 1040)}""")
 
@@ -115,8 +119,8 @@ def intro_html(shot):
 def cover_html():
     return page(f"""
 <div style="position:absolute;top:150px;left:0;right:0;text-align:center">
-  <div style="width:170px;height:170px;margin:0 auto">{EYE}</div>
-  <h1 style="font-size:120px;font-weight:800;line-height:1.1;margin-top:26px">عين</h1>
+  <div style="width:170px;height:170px;margin:0 auto">{LOGO}</div>
+  <h1 style="font-size:120px;font-weight:800;line-height:1.1;margin-top:26px">ريشة</h1>
   <p style="font-size:60px;font-weight:800;margin-top:14px;line-height:1.25">تعلّم التصميم الجرافيكي<br><span style="color:{CORAL}">وابنِ تطبيقك</span></p>
   <p class="en" dir="ltr" style="font-size:36px;margin-top:22px;color:{LILAC}">Learn graphic design &amp; build your app</p>
 </div>
@@ -127,7 +131,7 @@ def cover_html():
 
 def wa_link(phone: str) -> str:
     digits = re.sub(r"\D", "", phone)
-    text = urllib.parse.quote("مرحباً، أريد معرفة المزيد عن تطبيق عين لتعلّم التصميم")
+    text = urllib.parse.quote("مرحباً، أريد معرفة المزيد عن تطبيق ريشة لتعلّم التصميم")
     return f"https://wa.me/{digits}?text={text}"
 
 
@@ -146,7 +150,7 @@ def follow_html():
     """Ending without phone number or QR: TikTok removes videos that send viewers off the platform."""
     return page(f"""
 <div style="position:absolute;top:260px;left:0;right:0;text-align:center">
-  <div style="width:190px;height:190px;margin:0 auto">{EYE}</div>
+  <div style="width:190px;height:190px;margin:0 auto">{LOGO}</div>
   <h1 style="font-size:84px;font-weight:800;margin-top:40px;line-height:1.2">ابدأ رحلتك<br>في التصميم اليوم</h1>
   <p class="en" dir="ltr" style="font-size:38px;color:{LILAC};margin-top:18px">Start your design journey today</p>
   <div style="display:inline-block;margin-top:70px;font-size:46px;font-weight:800;color:#fff;background:{CORAL};padding:22px 52px;border-radius:60px">تابعنا لدروس تصميم يومية</div>
@@ -159,7 +163,7 @@ def follow_html():
 def cta_html(phone: str):
     return page(f"""
 <div style="position:absolute;top:120px;left:0;right:0;text-align:center">
-  <div style="width:120px;height:120px;margin:0 auto">{EYE}</div>
+  <div style="width:120px;height:120px;margin:0 auto">{LOGO}</div>
   <h1 style="font-size:72px;font-weight:800;margin-top:24px;line-height:1.2">ابدأ رحلتك<br>في التصميم اليوم</h1>
   <p class="en" dir="ltr" style="font-size:36px;color:{LILAC};margin-top:16px">Start your design journey today</p>
 </div>
@@ -228,7 +232,7 @@ def main():
     end = follow_html() if a.tiktok else cta_html(a.phone)
     clips.append(clip("cta", render("cta", end), None, CTA_SECONDS)); durs.append(CTA_SECONDS)
 
-    reel = OUT / ("eyn_reel_tiktok.mp4" if a.tiktok else "eyn_reel.mp4")
+    reel = OUT / ("risha_reel_tiktok.mp4" if a.tiktok else "risha_reel.mp4")
     total = join(clips, durs, reel)
     shutil.rmtree(WORK, ignore_errors=True)
     print(f"reel: {reel} ({total:.1f}s)\ncover: {OUT / 'cover.jpg'}" + ("" if a.tiktok else f"\nQR → {wa_link(a.phone)}"))

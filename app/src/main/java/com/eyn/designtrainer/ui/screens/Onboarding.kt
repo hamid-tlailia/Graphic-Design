@@ -55,7 +55,7 @@ import com.eyn.designtrainer.ui.LocalNav
 import com.eyn.designtrainer.ui.LocalVm
 import com.eyn.designtrainer.ui.Routes
 import com.eyn.designtrainer.ui.components.AnimatedDots
-import com.eyn.designtrainer.ui.components.EyeLogo
+import com.eyn.designtrainer.ui.components.BrandLogo
 import com.eyn.designtrainer.ui.components.PrimaryButton
 import com.eyn.designtrainer.ui.components.bounceClick
 import com.eyn.designtrainer.ui.components.dotPattern
@@ -119,7 +119,7 @@ fun OnboardingScreen() {
                         contentAlignment = Alignment.Center,
                     ) {
                         when (page) {
-                            0 -> EyeLogo(Modifier.size(78.dp, 52.dp), stroke = Navy)
+                            0 -> BrandLogo(Modifier.size(104.dp), nib = Navy)
                             1 -> Icon(Icons.AutoMirrored.Rounded.MenuBook, null, tint = Navy, modifier = Modifier.size(56.dp))
                             else -> Icon(Icons.Rounded.Dashboard, null, tint = Navy, modifier = Modifier.size(56.dp))
                         }
@@ -127,7 +127,7 @@ fun OnboardingScreen() {
                     Spacer(Modifier.height(36.dp))
                     Text(
                         when (page) {
-                            0 -> tr("عين", "Eyn")
+                            0 -> tr("ريشة", "Risha")
                             1 -> tr("تعلّم بالممارسة", "Learn by doing")
                             else -> tr("ابنِ تصاميمك", "Build your designs")
                         },
@@ -138,7 +138,7 @@ fun OnboardingScreen() {
                     Spacer(Modifier.height(12.dp))
                     Text(
                         when (page) {
-                            0 -> tr("درّب عين المصمم فيك\nدقيقة واحدة كل يوم", "Train the designer's eye in you,\none minute a day")
+                            0 -> tr("طوّر مهارتك في التصميم\nدقيقة واحدة كل يوم", "Grow your design skills,\none minute a day")
                             1 -> tr("دروس قصيرة وتحديات يومية: أيهما أفضل؟ ولماذا؟", "Short lessons and daily challenges: which is better, and why?")
                             else -> tr("اختر قطعاً جاهزة مثل الهيدر والفوتر وصفحات الدخول، ثم عدّل الألوان والنصوص والأحجام والمواضع.", "Pick ready blocks like headers, footers and login pages, then tweak colors, text, sizes and positions.")
                         },

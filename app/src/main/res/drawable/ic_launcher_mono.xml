@@ -3,12 +3,18 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:pathData="M29,54 Q54,28 79,54 Q54,80 29,54 Z"
-        android:strokeWidth="5"
-        android:strokeColor="#FFFFFF"
-        android:strokeLineJoin="round" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M44.5,54 a9.5,9.5 0 1,0 19,0 a9.5,9.5 0 1,0 -19,0" />
+    <!-- Brand mark on a 120 grid, scaled into the adaptive-icon safe zone. -->
+    <group android:scaleX="0.6" android:scaleY="0.6" android:translateX="18" android:translateY="18">
+        <path android:pathData="M18,92 C34,40 86,80 102,28" android:strokeWidth="5" android:strokeColor="#FFFFFF" android:strokeLineCap="round" />
+        <group android:rotation="-35" android:translateX="60" android:translateY="60">
+            <group android:scaleX="0.82" android:scaleY="0.82" android:translateX="-50" android:translateY="-56">
+                <group android:translateX="11" android:translateY="6">
+                    <path android:pathData="M30,36 H70 V54 L50,92 L30,54 Z" android:fillColor="#FFFFFF" android:strokeColor="#FFFFFF" android:strokeWidth="4" android:strokeLineJoin="round" />
+                    <path android:pathData="M40,16 H60 A5,5 0 0 1 65,21 V25 A5,5 0 0 1 60,30 H40 A5,5 0 0 1 35,25 V21 A5,5 0 0 1 40,16 Z" android:fillColor="#FFFFFF" />
+                    <path android:pathData="M50,64 L50,90" android:strokeColor="#00000000" android:strokeWidth="3.5" android:strokeLineCap="round" />
+                    <path android:pathData="M43,58 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0" android:fillColor="#00000000" />
+                </group>
+            </group>
+        </group>
+    </group>
 </vector>

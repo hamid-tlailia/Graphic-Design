@@ -324,7 +324,7 @@ private fun ResultView(
         Spacer(Modifier.height(8.dp))
         Text(
             when {
-                right == total -> tr("عين مصمم حقيقية!", "A true designer's eye!")
+                right == total -> tr("لمسة مصمم حقيقية!", "A true designer's touch!")
                 passed -> tr("عمل رائع، استمر!", "Great work, keep going!")
                 else -> tr("تحتاج تدريباً أكثر قليلاً", "A little more practice needed")
             },

@@ -70,10 +70,10 @@ fun ProfileScreen() {
     val nav = LocalNav.current
     val level = d.points / 100 + 1
     val levelName = when {
-        level < 3 -> tr("عين مبتدئة", "Beginner eye")
-        level < 6 -> tr("عين متدرّبة", "Trained eye")
-        level < 10 -> tr("عين حادّة", "Sharp eye")
-        else -> tr("عين خبيرة", "Expert eye")
+        level < 3 -> tr("مصمم مبتدئ", "Beginner designer")
+        level < 6 -> tr("مصمم متدرّب", "Trained designer")
+        level < 10 -> tr("مصمم محترف", "Pro designer")
+        else -> tr("مصمم خبير", "Expert designer")
     }
     val accuracy = if (d.answered == 0) 0 else d.correct * 100 / d.answered
 
@@ -232,7 +232,7 @@ fun SettingsScreen() {
                 Text(tr("عن التطبيق", "About"), style = Type.label, color = c.text)
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    tr("عين · مدرّب التصميم. درّب عينك، صمّم بثقة.\nالإصدار 1.4.0", "Eyn · Design Trainer. Train your eye, design with confidence.\nVersion 1.4.0"),
+                    tr("ريشة · مدرّب التصميم. تعلّم، تدرّب، صمّم بثقة.\nالإصدار 1.5.0", "Risha · Design Trainer. Learn, practice, design with confidence.\nVersion 1.5.0"),
                     style = Type.small, color = c.muted,
                 )
             }

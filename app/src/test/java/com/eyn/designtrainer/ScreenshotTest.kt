@@ -169,6 +169,14 @@ class ScreenshotTest {
     @Test fun s36_canvas_size() = shot("36_canvas_size", Routes.canvas("d2")) { click("الألوان"); click("جوال 360") }
     @Test fun s37_identity_icons() = shot("37_identity_icons", Routes.identity("p1")) { click("محدد") }
     @Test fun s38_saved() = shot("38_saved", Routes.LESSONS) { click("كل الدروس"); click("المحفوظة") }
+    @Test fun s41_launcher_icon() {
+        val ctx = ApplicationProvider.getApplicationContext<Application>()
+        val bmp = Bitmap.createBitmap(432, 432, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bmp)
+        canvas.drawColor(0xFF2A2470.toInt())
+        ctx.getDrawable(R.drawable.ic_launcher_foreground)!!.apply { setBounds(0, 0, 432, 432); draw(canvas) }
+        File(File("build/screens").apply { mkdirs() }, "41_launcher_icon.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
     @Test fun s40_code() {
         val dir = File("build/screens").apply { mkdirs() }
         for (lang in Lang.entries) {
