@@ -232,7 +232,7 @@ fun SettingsScreen() {
                 Text(tr("عن التطبيق", "About"), style = Type.label, color = c.text)
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    tr("ريشة · مدرّب التصميم. تعلّم، تدرّب، صمّم بثقة.\nالإصدار 1.6.0", "Risha · Design Trainer. Learn, practice, design with confidence.\nVersion 1.6.0"),
+                    tr("ريشة · مدرّب التصميم. تعلّم، تدرّب، صمّم بثقة.\nالإصدار 1.6.1", "Risha · Design Trainer. Learn, practice, design with confidence.\nVersion 1.6.1"),
                     style = Type.small, color = c.muted,
                 )
             }

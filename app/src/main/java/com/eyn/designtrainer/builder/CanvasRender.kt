@@ -65,6 +65,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -155,6 +156,8 @@ fun RenderEl(e: El, scale: Float, modifier: Modifier = Modifier) {
         fontStyle = if (e.italic) FontStyle.Italic else FontStyle.Normal,
         textDecoration = if (e.underline) TextDecoration.Underline else null,
         letterSpacing = sp(e.letterSpacing), textAlign = textAlign,
+        // The canvas lays out left-to-right; let each text pick its direction from its first letter.
+        textDirection = TextDirection.Content,
     )
     val fill = e.fill()
     val hasBox = e.type !in setOf(ElType.TOGGLE, ElType.SLIDER, ElType.PROGRESS, ElType.RATING, ElType.CHECKBOX, ElType.PAYMENT)

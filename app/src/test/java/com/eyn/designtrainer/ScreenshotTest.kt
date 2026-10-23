@@ -23,6 +23,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onNodeWithContentDescription
 import com.eyn.designtrainer.builder.starterPage
 import com.eyn.designtrainer.builder.toDesign
+import com.eyn.designtrainer.builder.itemsOr
 import com.eyn.designtrainer.data.AppData
 import com.eyn.designtrainer.data.AppProject
 import com.eyn.designtrainer.data.AppViewModel
@@ -253,6 +254,23 @@ class ScreenshotTest {
         st.add(ElType.SHAPE, Lang.AR, variant = 25)
         st.updateEl(st.selectedId!!) { it.copy(x = 60f, y = 360f, w = 240f, h = 50f, text = "عنوان على شريط") }
         still("43_canvas_shapes") { com.eyn.designtrainer.builder.DesignCanvas(st.design, 1.1f) }
+    }
+
+    @Test fun s46_text_emoji() {
+        val st = EditorState(blankDesign(Lang.AR).copy(id = "d4", w = 360f, h = 200f))
+        st.add(ElType.TEXT, Lang.AR)
+        st.updateEl(st.selectedId!!) { it.copy(x = 20f, y = 40f, w = 320f, h = 50f, text = "حبيبتي🌹🌹🌹❤️", fontSize = 28f) }
+        st.add(ElType.TEXT, Lang.AR)
+        st.updateEl(st.selectedId!!) { it.copy(x = 20f, y = 110f, w = 320f, h = 50f, text = "Hello 🌹 مرحبا", fontSize = 24f, align = 0) }
+        still("46_text_emoji") { com.eyn.designtrainer.builder.DesignCanvas(st.design, 1.1f) }
+    }
+
+    @Test fun deletedHeaderIconsStayDeleted() {
+        val p = AppProject(name = "x")
+        val b = com.eyn.designtrainer.builder.defaultBlock(com.eyn.designtrainer.data.BlockKind.HEADER, 3, p, Lang.AR)
+        org.junit.Assert.assertEquals(1, b.itemsOr(Lang.AR).size)
+        val cleared = b.copy(items = emptyList(), hidden = b.hidden + com.eyn.designtrainer.builder.NO_ITEMS)
+        org.junit.Assert.assertTrue(cleared.itemsOr(Lang.AR).isEmpty())
     }
 
     @Test fun s45_shop_code() {

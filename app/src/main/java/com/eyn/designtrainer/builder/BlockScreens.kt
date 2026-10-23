@@ -771,7 +771,12 @@ private fun BlockEditSheet(b: Block, p: AppProject, onChange: (Block) -> Unit, o
 
             if (b.hasItems()) {
                 val items = b.itemsOr(lang)
-                fun setItems(list: List<BlockItem>, active: Int = b.active) = onChange(b.copy(items = list, active = active.coerceIn(0, (list.size - 1).coerceAtLeast(0))))
+                fun setItems(list: List<BlockItem>, active: Int = b.active) = onChange(
+                    b.copy(
+                        items = list, active = active.coerceIn(0, (list.size - 1).coerceAtLeast(0)),
+                        hidden = if (list.isEmpty()) b.hidden + NO_ITEMS else b.hidden - NO_ITEMS,
+                    ),
+                )
                 Label(
                     when (b.kind) {
                         BlockKind.FOOTER -> if (b.variant == 0) tr("أزرار شريط التبويبات", "Tab bar items") else tr("الروابط", "Links")

@@ -310,7 +310,10 @@ fun defaultItems(b: Block, lang: Lang): List<BlockItem> {
     }
 }
 
-fun Block.itemsOr(lang: Lang) = items.ifEmpty { defaultItems(this, lang) }
+/** Marks a block whose items the user removed on purpose, so the defaults don't come back. */
+const val NO_ITEMS = "noitems"
+
+fun Block.itemsOr(lang: Lang) = if (NO_ITEMS in hidden) emptyList() else items.ifEmpty { defaultItems(this, lang) }
 
 @Composable
 private fun BlockContent(b: Block, p: AppProject, modifier: Modifier) {
