@@ -9,6 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -173,8 +174,9 @@ internal fun AppNav(dark: Boolean, startOverride: String? = null) {
                 startDestination = start,
                 modifier = Modifier.weight(1f),
                 enterTransition = {
-                    if (initialState.isTab() && targetState.isTab()) fadeIn(tween(260)) + scaleIn(tween(260), initialScale = 0.98f)
-                    else slideIntoContainer(SlideDirection.Start, tween(dur, easing = FastOutSlowInEasing)) { it / 3 } + fadeIn(tween(dur))
+                    if (initialState.isTab() && targetState.isTab()) fadeIn(tween(300)) + slideInVertically(tween(300, easing = FastOutSlowInEasing)) { it / 30 }
+                    else slideIntoContainer(SlideDirection.Start, tween(dur, easing = FastOutSlowInEasing)) { it / 3 } + fadeIn(tween(dur)) +
+                        scaleIn(tween(dur, easing = FastOutSlowInEasing), initialScale = 0.97f)
                 },
                 exitTransition = {
                     if (initialState.isTab() && targetState.isTab()) fadeOut(tween(180))
@@ -186,7 +188,8 @@ internal fun AppNav(dark: Boolean, startOverride: String? = null) {
                 },
                 popExitTransition = {
                     if (initialState.isTab() && targetState.isTab()) fadeOut(tween(180))
-                    else slideOutOfContainer(SlideDirection.End, tween(dur, easing = FastOutSlowInEasing)) { it / 3 } + fadeOut(tween(dur))
+                    else slideOutOfContainer(SlideDirection.End, tween(dur, easing = FastOutSlowInEasing)) { it / 3 } + fadeOut(tween(dur)) +
+                        scaleOut(tween(dur, easing = FastOutSlowInEasing), targetScale = 0.97f)
                 },
             ) {
                 composable(Routes.ONBOARDING) { OnboardingScreen() }

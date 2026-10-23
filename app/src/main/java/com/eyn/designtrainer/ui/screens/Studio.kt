@@ -63,6 +63,7 @@ import com.eyn.designtrainer.ui.components.PrimaryButton
 import com.eyn.designtrainer.ui.components.SectionTitle
 import com.eyn.designtrainer.ui.components.TopBar
 import com.eyn.designtrainer.ui.components.bounceClick
+import com.eyn.designtrainer.ui.components.appear
 import com.eyn.designtrainer.ui.components.dotPattern
 import com.eyn.designtrainer.ui.theme.Eyn
 import com.eyn.designtrainer.ui.theme.Type
@@ -155,8 +156,8 @@ fun StudioScreen() {
         val list = (Templates + LogoTemplates).filter { kinds[kind] == null || it.kind == kinds[kind] }
         Column(Modifier.padding(horizontal = 20.dp)) {
             val tiles: List<Any?> = (if (kinds[kind] == null) listOf<Any?>(null) else emptyList()) + list
-            tiles.chunked(2).forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(bottom = 12.dp)) {
+            tiles.chunked(2).forEachIndexed { ri, row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.appear(ri).padding(bottom = 12.dp)) {
                     row.forEach { item ->
                         Column(
                             Modifier.weight(1f).bounceClick {

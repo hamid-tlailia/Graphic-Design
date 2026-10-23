@@ -116,7 +116,14 @@ data class Block(
     val minHeight: Float = 0f,
     val pinBottom: Boolean = false, // keep at the bottom of the page (footers, tab bars)
     val image: String = "",         // photo for hero / card blocks
+    val items: List<BlockItem> = emptyList(), // editable tabs / rows / chips (empty = defaults)
+    val active: Int = 0,            // highlighted item (current tab in a tab bar)
+    val widthPct: Float = 1f,       // content width as a fraction of the page
+    val itemHeight: Float = 0f,     // button / field / image height (0 = default)
 )
+
+@Serializable
+data class BlockItem(val label: String, val icon: String = "")
 
 @Serializable
 data class Page(val id: String = newId(), val name: String, val blocks: List<Block> = emptyList(), val height: Float = 640f)

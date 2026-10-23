@@ -26,6 +26,8 @@ import androidx.compose.material.icons.rounded.Smartphone
 import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.SettingsEthernet
 import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.Widgets
@@ -52,6 +54,8 @@ import com.eyn.designtrainer.ui.components.Pill
 import com.eyn.designtrainer.ui.components.ProgressBar
 import com.eyn.designtrainer.ui.components.SectionTitle
 import com.eyn.designtrainer.ui.components.bounceClick
+import com.eyn.designtrainer.ui.components.appear
+import com.eyn.designtrainer.ui.components.SquareIconButton
 import com.eyn.designtrainer.ui.components.dotPattern
 import com.eyn.designtrainer.ui.theme.Eyn
 import com.eyn.designtrainer.ui.theme.Type
@@ -95,21 +99,26 @@ fun HomeScreen() {
             .padding(horizontal = 20.dp),
     ) {
         Spacer(Modifier.height(16.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.appear(0), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(if (morning) tr("صباح الخير", "Good morning") else tr("مساء الخير", "Good evening"), style = Type.small, color = c.muted)
                 Text(d.name.ifBlank { tr("مصمم المستقبل", "Future designer") }, style = Type.h1, color = c.text)
+                Spacer(Modifier.height(4.dp))
+                Pill(
+                    tr("${d.streak} يوماً", "${d.streak} days"),
+                    bg = c.accentSoft, fg = c.accent, icon = Icons.Rounded.LocalFireDepartment,
+                )
             }
-            Pill(
-                tr("${d.streak} يوماً", "${d.streak} days"),
-                bg = c.accentSoft, fg = c.accent, icon = Icons.Rounded.LocalFireDepartment,
-            )
+            SquareIconButton(Icons.Rounded.Search, { nav.goTab(Routes.LESSONS) })
+            Spacer(Modifier.width(8.dp))
+            SquareIconButton(Icons.Rounded.Settings, { nav.navigate(Routes.SETTINGS) })
         }
         Spacer(Modifier.height(20.dp))
 
         // Daily challenge
         Column(
             Modifier
+                .appear(1)
                 .fillMaxWidth()
                 .bounceClick { nav.navigate(Routes.quiz("daily")) }
                 .clip(RoundedCornerShape(24.dp))
@@ -141,7 +150,7 @@ fun HomeScreen() {
         if (next != null) {
             Spacer(Modifier.height(14.dp))
             val doneAll = Content.lessons.count { it.id in d.completed }
-            EynCard(Modifier.fillMaxWidth(), onClick = { nav.navigate(Routes.lesson(next.id)) }) {
+            EynCard(Modifier.appear(2).fillMaxWidth(), onClick = { nav.navigate(Routes.lesson(next.id)) }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val st = catStyle(next.cat)
                     IconTile(st.icon, st.bg, st.tint)
@@ -159,8 +168,8 @@ fun HomeScreen() {
         Spacer(Modifier.height(24.dp))
         SectionTitle(tr("الأقسام", "Sections"), tr("عرض الكل", "View all")) { nav.goTab(Routes.LESSONS) }
         val cats = listOf(Cat.SPACING, Cat.COLORS, Cat.TYPE, Cat.ALIGN)
-        cats.chunked(2).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        cats.chunked(2).forEachIndexed { ri, row ->
+            Row(Modifier.appear(3 + ri), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 row.forEach { cat ->
                     val s = catStyle(cat)
                     EynCard(Modifier.weight(1f), onClick = { nav.navigate(Routes.quiz("cat:${cat.name}")) }) {
@@ -178,7 +187,7 @@ fun HomeScreen() {
 
         Spacer(Modifier.height(12.dp))
         SectionTitle(tr("وضع البناء", "Build mode"))
-        EynCard(onClick = { nav.goTab(Routes.STUDIO) }, color = c.lilac, border = null, padding = PaddingValues(18.dp)) {
+        EynCard(Modifier.appear(5), onClick = { nav.goTab(Routes.STUDIO) }, color = c.lilac, border = null, padding = PaddingValues(18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(tr("صمّم تطبيقك بالقطع", "Design your app with blocks"), style = Type.h3, color = c.onLilac)

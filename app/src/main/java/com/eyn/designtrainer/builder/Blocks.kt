@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -57,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.eyn.designtrainer.data.AppProject
 import com.eyn.designtrainer.data.Block
+import com.eyn.designtrainer.data.BlockItem
 import com.eyn.designtrainer.data.BlockKind
 import com.eyn.designtrainer.data.Page
 import com.eyn.designtrainer.data.c
@@ -251,9 +254,31 @@ fun BlockView(b: Block, p: AppProject, modifier: Modifier = Modifier) {
     val d = LocalDensity.current
     // Text size control: scale fonts inside this block only.
     CompositionLocalProvider(LocalDensity provides Density(d.density, d.fontScale * b.textScale)) {
-        BlockContent(b, p, modifier.heightIn(min = b.minHeight.dp))
+        Box(modifier.fillMaxWidth(), contentAlignment = if (b.align == 1) Alignment.TopCenter else Alignment.TopStart) {
+            BlockContent(b, p, Modifier.fillMaxWidth(b.widthPct.coerceIn(0.2f, 1f)).heightIn(min = b.minHeight.dp))
+        }
     }
 }
+
+/** Which kinds expose an editable list of items, and whether those items carry icons. */
+fun Block.hasItems() = kind == BlockKind.FOOTER || kind == BlockKind.LIST || kind == BlockKind.CATEGORIES || (kind == BlockKind.HEADER && variant == 5)
+fun Block.itemsHaveIcons() = (kind == BlockKind.FOOTER && variant == 0) || kind == BlockKind.LIST || kind == BlockKind.CATEGORIES
+fun Block.hasActiveItem() = (kind == BlockKind.FOOTER && variant == 0) || kind == BlockKind.CATEGORIES || (kind == BlockKind.HEADER && variant == 5)
+
+fun defaultItems(b: Block, lang: Lang): List<BlockItem> {
+    fun i(ar: String, en: String, icon: String = "") = BlockItem(if (lang == Lang.AR) ar else en, icon)
+    return when (b.kind) {
+        BlockKind.FOOTER -> if (b.variant == 0) listOf(i("الرئيسية", "Home", "home"), i("بحث", "Search", "search"), i("السلة", "Cart", "shopping_bag"), i("حسابي", "Account", "person"))
+        else listOf(i("من نحن", "About"), i("الشروط", "Terms"), i("تواصل", "Contact"))
+        BlockKind.LIST -> if (b.variant == 0) listOf(i("طلباتي", "My orders", "receipt"), i("العناوين", "Addresses", "location_on"), i("الدفع", "Payment", "credit_card"), i("المساعدة", "Help", "help"))
+        else listOf(i("الإشعارات", "Notifications", "notifications"), i("العروض", "Offers", "star"), i("الموقع", "Location", "location_on"))
+        BlockKind.CATEGORIES -> listOf(i("قهوة", "Coffee", "local_cafe"), i("شاي", "Tea", "emoji_food_beverage"), i("حلى", "Sweets", "cake"), i("بارد", "Cold", "icecream"))
+        BlockKind.HEADER -> listOf(i("الكل", "All"), i("جديد", "New"), i("عروض", "Deals"))
+        else -> emptyList()
+    }
+}
+
+fun Block.itemsOr(lang: Lang) = items.ifEmpty { defaultItems(this, lang) }
 
 @Composable
 private fun BlockContent(b: Block, p: AppProject, modifier: Modifier) {
@@ -302,10 +327,11 @@ private fun BlockContent(b: Block, p: AppProject, modifier: Modifier) {
                     PText(b.title, t, 22, bold = true)
                     Spacer(Modifier.height(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                        listOf(L("الكل", "All"), L("جديد", "New"), L("عروض", "Deals")).forEachIndexed { i, l ->
+                        b.itemsOr(lang).forEachIndexed { i, item ->
+                            val on = i == b.active
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                PText(l.get(lang), t, 14, if (i == 0) t.primary else t.muted, bold = i == 0)
-                                Box(Modifier.padding(top = 4.dp).width(18.dp).height(3.dp).clip(CircleShape).background(if (i == 0) t.accent else Color.Transparent))
+                                PText(item.label, t, 14, if (on) t.primary else t.muted, bold = on)
+                                Box(Modifier.padding(top = 4.dp).width(18.dp).height(3.dp).clip(CircleShape).background(if (on) t.accent else Color.Transparent))
                             }
                         }
                     }
@@ -332,7 +358,7 @@ private fun BlockContent(b: Block, p: AppProject, modifier: Modifier) {
                         Spacer(Modifier.width(12.dp))
                         Placeholder(t.copy(surface = Color.White.copy(alpha = 0.6f)), Modifier.size(96.dp), r * 0.7f, b.image)
                     }
-                    else -> Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(r)).background(heroBg)) {
+                    else -> Box(Modifier.fillMaxWidth().heightIn(min = b.itemHeight.dp).clip(RoundedCornerShape(r)).background(heroBg), contentAlignment = Alignment.Center) {
                         val onPhoto = if (b.image.isNotEmpty()) Color.White else onHero
                         if (b.image.isNotEmpty()) {
                             PhotoImage(b.image, 0, Modifier.matchParentSize())
@@ -354,7 +380,7 @@ private fun BlockContent(b: Block, p: AppProject, modifier: Modifier) {
 
         BlockKind.SEARCH -> Row(box.padding(horizontal = pad, vertical = pad * 0.5f), verticalAlignment = Alignment.CenterVertically) {
             Row(
-                Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(r)).background(Color.White)
+                Modifier.weight(1f).height(if (b.itemHeight > 0) b.itemHeight.dp else 48.dp).clip(RoundedCornerShape(r)).background(Color.White)
                     .border(1.dp, t.ink.copy(alpha = 0.08f), RoundedCornerShape(r)).padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -364,7 +390,7 @@ private fun BlockContent(b: Block, p: AppProject, modifier: Modifier) {
             }
             if (b.variant == 1) {
                 Spacer(Modifier.width(10.dp))
-                Box(Modifier.size(48.dp).clip(RoundedCornerShape(r)).background(t.primary), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(if (b.itemHeight > 0) b.itemHeight.dp else 48.dp).clip(RoundedCornerShape(r)).background(t.primary), contentAlignment = Alignment.Center) {
                     Icon(Icons.Rounded.Tune, null, tint = t.onPrimary, modifier = Modifier.size(20.dp))
                 }
             }
@@ -375,17 +401,26 @@ private fun BlockContent(b: Block, p: AppProject, modifier: Modifier) {
                 PText(b.title, t, 16, bold = true, align = ta, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(10.dp))
             }
-            val cats = listOf(L("قهوة", "Coffee"), L("شاي", "Tea"), L("حلى", "Sweets"), L("بارد", "Cold"))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = if (b.variant == 0) Arrangement.SpaceBetween else Arrangement.spacedBy(8.dp)) {
-                cats.forEachIndexed { i, l ->
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = if (b.variant == 0) Arrangement.spacedBy(14.dp) else Arrangement.spacedBy(8.dp),
+            ) {
+                b.itemsOr(lang).forEachIndexed { i, item ->
+                    val on = i == b.active
                     if (b.variant == 0) Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(Modifier.size(54.dp).clip(CircleShape).background(if (i == 3) t.primary else t.surface))
+                        val s = if (b.itemHeight > 0) b.itemHeight.dp else 54.dp
+                        Box(Modifier.size(s).clip(CircleShape).background(if (on) t.primary else t.surface), contentAlignment = Alignment.Center) {
+                            if (item.icon.isNotEmpty()) FontIcon(item.icon, if (on) t.onPrimary else t.primary, s.value * 0.45f)
+                        }
                         Spacer(Modifier.height(6.dp))
-                        PText(l.get(lang), t, 12, t.ink)
-                    } else PText(
-                        l.get(lang), t, 13, if (i == 0) t.onPrimary else t.ink, bold = i == 0,
-                        modifier = Modifier.clip(CircleShape).background(if (i == 0) t.primary else t.surface).padding(horizontal = 14.dp, vertical = 7.dp),
-                    )
+                        PText(item.label, t, 12, t.ink, bold = on)
+                    } else Row(
+                        Modifier.clip(CircleShape).background(if (on) t.primary else t.surface).padding(horizontal = 14.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (item.icon.isNotEmpty()) { FontIcon(item.icon, if (on) t.onPrimary else t.primary, 16f); Spacer(Modifier.width(6.dp)) }
+                        PText(item.label, t, 13, if (on) t.onPrimary else t.ink, bold = on)
+                    }
                 }
             }
         }
@@ -399,7 +434,7 @@ private fun BlockContent(b: Block, p: AppProject, modifier: Modifier) {
                 0 -> Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     listOf(0, 1).forEach { i ->
                         Column(Modifier.weight(1f).clip(RoundedCornerShape(r)).background(t.card).padding(10.dp)) {
-                            Placeholder(t, Modifier.fillMaxWidth().aspectRatio(1.3f), r * 0.7f, b.image)
+                            Placeholder(t, if (b.itemHeight > 0) Modifier.fillMaxWidth().height(b.itemHeight.dp) else Modifier.fillMaxWidth().aspectRatio(1.3f), r * 0.7f, b.image)
                             Spacer(Modifier.height(8.dp))
                             PText(sampleItems[i].get(lang), t, 14, bold = true, maxLines = 1)
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -425,7 +460,7 @@ private fun BlockContent(b: Block, p: AppProject, modifier: Modifier) {
                     }
                 }
                 else -> Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(r)).background(t.card)) {
-                    Placeholder(t, Modifier.fillMaxWidth().height(130.dp), 0.dp, b.image)
+                    Placeholder(t, Modifier.fillMaxWidth().height(if (b.itemHeight > 0) b.itemHeight.dp else 130.dp), 0.dp, b.image)
                     Column(Modifier.padding(14.dp), horizontalAlignment = hAlign) {
                         PText(sampleItems[1].get(lang), t, 16, bold = true, align = ta)
                         PText("4.9 ★ · 24 ${b.subtitle}", t, 13, t.muted, align = ta)
@@ -439,17 +474,20 @@ private fun BlockContent(b: Block, p: AppProject, modifier: Modifier) {
                 PText(b.title, t, 16, bold = true, align = ta, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(10.dp))
             }
-            val rows = if (b.variant == 0)
-                listOf(Icons.Rounded.Receipt to L("طلباتي", "My orders"), Icons.Rounded.LocationOn to L("العناوين", "Addresses"), Icons.Rounded.CreditCard to L("الدفع", "Payment"), Icons.Rounded.HelpOutline to L("المساعدة", "Help"))
-            else listOf(Icons.Rounded.Notifications to L("الإشعارات", "Notifications"), Icons.Rounded.Star to L("العروض", "Offers"), Icons.Rounded.LocationOn to L("الموقع", "Location"))
+            val rows = b.itemsOr(lang)
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(r)).background(t.card)) {
-                rows.forEachIndexed { i, (ic, l) ->
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(t.surface), contentAlignment = Alignment.Center) {
-                            Icon(ic, null, tint = t.primary, modifier = Modifier.size(18.dp))
+                rows.forEachIndexed { i, item ->
+                    Row(
+                        Modifier.fillMaxWidth().heightIn(min = b.itemHeight.dp).padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (item.icon.isNotEmpty()) {
+                            Box(Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(t.surface), contentAlignment = Alignment.Center) {
+                                FontIcon(item.icon, t.primary, 18f)
+                            }
+                            Spacer(Modifier.width(12.dp))
                         }
-                        Spacer(Modifier.width(12.dp))
-                        PText(l.get(lang), t, 14, modifier = Modifier.weight(1f))
+                        PText(item.label, t, 14, modifier = Modifier.weight(1f))
                         if (b.variant == 0) Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = t.muted, modifier = Modifier.size(20.dp))
                         else Box(Modifier.width(38.dp).height(22.dp).clip(CircleShape).background(if (i != 1) t.primary else t.surface), contentAlignment = if (i != 1) Alignment.CenterEnd else Alignment.CenterStart) {
                             Box(Modifier.padding(3.dp).size(16.dp).clip(CircleShape).background(Color.White))
@@ -479,23 +517,24 @@ private fun BlockContent(b: Block, p: AppProject, modifier: Modifier) {
             else listOf(L("الاسم", "Name"), L("البريد الإلكتروني", "Email"), L("رسالتك", "Your message"))
             fields.forEachIndexed { i, f ->
                 Box(
-                    Modifier.fillMaxWidth().padding(bottom = 10.dp).height(if (b.variant == 1 && i == 2) 84.dp else 48.dp)
+                    Modifier.fillMaxWidth().padding(bottom = 10.dp).height(if (b.variant == 1 && i == 2) 84.dp else if (b.itemHeight > 0) b.itemHeight.dp else 48.dp)
                         .clip(RoundedCornerShape(r)).background(Color.White).border(1.dp, t.ink.copy(alpha = 0.1f), RoundedCornerShape(r))
                         .padding(horizontal = 14.dp, vertical = 13.dp),
                 ) { PText(f.get(lang), t, 13, t.muted) }
             }
             Spacer(Modifier.height(4.dp))
-            Box(Modifier.fillMaxWidth().height(50.dp).clip(RoundedCornerShape(r)).background(t.primary), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxWidth().height(if (b.itemHeight > 0) b.itemHeight.dp else 50.dp).clip(RoundedCornerShape(r)).background(t.primary), contentAlignment = Alignment.Center) {
                 PText(b.button, t, 15, t.onPrimary, bold = true)
             }
         }
 
         BlockKind.BUTTON -> Row(box.padding(horizontal = pad, vertical = pad * 0.5f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            val bh = if (b.itemHeight > 0) b.itemHeight.dp else 50.dp
             if (b.variant == 1) Box(
-                Modifier.weight(1f).height(50.dp).clip(RoundedCornerShape(r)).border(1.5.dp, t.primary.copy(alpha = 0.4f), RoundedCornerShape(r)),
+                Modifier.weight(1f).height(bh).clip(RoundedCornerShape(r)).border(1.5.dp, t.primary.copy(alpha = 0.4f), RoundedCornerShape(r)),
                 contentAlignment = Alignment.Center,
             ) { PText(b.subtitle, t, 15, t.primary, bold = true) }
-            Box(Modifier.weight(1f).height(50.dp).clip(RoundedCornerShape(r)).background(t.primary), contentAlignment = Alignment.Center) {
+            Box(Modifier.weight(1f).height(bh).clip(RoundedCornerShape(r)).background(t.primary), contentAlignment = Alignment.Center) {
                 PText(b.button, t, 15, t.onPrimary, bold = true)
             }
         }
@@ -504,19 +543,22 @@ private fun BlockContent(b: Block, p: AppProject, modifier: Modifier) {
             box.background(bg ?: Color.White).padding(vertical = pad + 2.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
-            listOf(Icons.Rounded.Home to L("الرئيسية", "Home"), Icons.Rounded.Search to L("بحث", "Search"), Icons.Rounded.ShoppingBag to L("السلة", "Cart"), Icons.Rounded.Person to L("حسابي", "Account"))
-                .forEachIndexed { i, (ic, l) ->
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(ic, null, tint = if (i == 0) t.primary else t.muted, modifier = Modifier.size(22.dp))
-                        PText(l.get(lang), t, 11, if (i == 0) t.primary else t.muted, bold = i == 0)
-                    }
+            b.itemsOr(lang).forEachIndexed { i, item ->
+                val on = i == b.active
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        Modifier.clip(CircleShape).background(if (on) t.surface else Color.Transparent).padding(horizontal = 12.dp, vertical = 3.dp),
+                        contentAlignment = Alignment.Center,
+                    ) { FontIcon(item.icon.ifEmpty { "circle" }, if (on) t.primary else t.muted, 22f) }
+                    PText(item.label, t, 11, if (on) t.primary else t.muted, bold = on, maxLines = 1)
                 }
+            }
         } else Column(box.background(bg ?: t.primary).padding(pad), horizontalAlignment = hAlign) {
             val on = if ((bg ?: t.primary).luminance() > 0.5f) t.ink else Color.White
             PText(b.title, t, 18, on, bold = true, align = ta, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                listOf(L("من نحن", "About"), L("الشروط", "Terms"), L("تواصل", "Contact")).forEach { PText(it.get(lang), t, 13, on.copy(alpha = 0.8f)) }
+                b.itemsOr(lang).forEach { PText(it.label, t, 13, on.copy(alpha = 0.8f)) }
             }
             Spacer(Modifier.height(10.dp))
             PText(b.subtitle, t, 11, on.copy(alpha = 0.6f), align = ta, modifier = Modifier.fillMaxWidth())

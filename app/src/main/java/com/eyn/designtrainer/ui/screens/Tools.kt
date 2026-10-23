@@ -92,6 +92,7 @@ import com.eyn.designtrainer.ui.components.PrimaryButton
 import com.eyn.designtrainer.ui.components.SquareIconButton
 import com.eyn.designtrainer.ui.components.TopBar
 import com.eyn.designtrainer.ui.components.bounceClick
+import com.eyn.designtrainer.ui.components.appear
 import com.eyn.designtrainer.ui.components.dotPattern
 import com.eyn.designtrainer.ui.components.hex
 import com.eyn.designtrainer.ui.theme.Cairo
@@ -124,8 +125,8 @@ fun PracticeHubScreen() {
                 tr("نجحت في ${d.practiceWins} تمارين عملية", "You've passed ${d.practiceWins} practice rounds"),
                 style = Type.body, color = c.muted,
             )
-            tools.forEach { t ->
-                EynCard(Modifier.fillMaxWidth(), onClick = {
+            tools.forEachIndexed { ti, t ->
+                EynCard(Modifier.appear(ti).fillMaxWidth(), onClick = {
                     if (t.route == Routes.STUDIO) nav.goTab(t.route)
                     else nav.navigate(t.route)
                 }) {

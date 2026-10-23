@@ -18,6 +18,9 @@ object CodeGen {
 
     private data class Sample(val cats: List<String>, val items: List<String>, val tabs: List<String>, val login: List<String>, val contact: List<String>, val rows: List<String>)
 
+    /** The block's own item labels when it has editable items, otherwise the sample list. */
+    private fun Block.labels(lang: Lang, fallback: List<String>) = if (hasItems()) itemsOr(lang).map { it.label } else fallback
+
     private fun palette(p: AppProject) = if (p.applyIdentity) p.colors() else Palettes[1]
 
     private fun fontCss(p: AppProject): Pair<String, String> = when (if (p.applyIdentity) p.font else 2) {
@@ -36,7 +39,7 @@ object CodeGen {
         val screens = p.pages.joinToString("\n") { page ->
             """  <div class="wrap"><div class="page-name">${esc(page.name)}</div>
     <main class="screen">
-${page.blocks.joinToString("\n") { "      " + htmlBlock(it, p, s) }}
+${page.blocks.joinToString("\n") { "      " + htmlBlock(it, p, s, lang) }}
     </main></div>"""
         }
         return """<!doctype html>
@@ -81,7 +84,8 @@ $screens
 """
     }
 
-    private fun htmlBlock(b: Block, p: AppProject, s: Sample): String {
+    private fun htmlBlock(b: Block, p: AppProject, s0: Sample, lang: Lang): String {
+        val s = s0.copy(cats = b.labels(lang, s0.cats), rows = b.labels(lang, s0.rows), tabs = b.labels(lang, s0.tabs))
         val pal = palette(p)
         val r = "${b.radius.toInt()}px"
         val bg = b.bg?.let { "background:${it.hex()};" } ?: ""
@@ -134,7 +138,7 @@ $screens
 export function $name() {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={{ paddingVertical: 8 }}>
-${page.blocks.joinToString("\n") { rnBlock(it, s).prependIndent("      ") }}
+${page.blocks.joinToString("\n") { rnBlock(it, s, lang).prependIndent("      ") }}
     </ScrollView>
   );
 }"""
@@ -178,7 +182,8 @@ const s = StyleSheet.create({
 """
     }
 
-    private fun rnBlock(b: Block, s: Sample): String {
+    private fun rnBlock(b: Block, s0: Sample, lang: Lang): String {
+        val s = s0.copy(cats = b.labels(lang, s0.cats), rows = b.labels(lang, s0.rows), tabs = b.labels(lang, s0.tabs))
         val pad = "paddingHorizontal: ${b.padding.toInt()}, paddingVertical: ${(b.padding * 0.5f).toInt()}"
         val bg = b.bg?.let { ", backgroundColor: '${it.hex()}'" } ?: ""
         val r = b.radius.toInt()

@@ -63,6 +63,16 @@ import androidx.compose.ui.unit.sp
 import com.eyn.designtrainer.ui.theme.Eyn
 import com.eyn.designtrainer.ui.theme.Type
 
+/** Fades and slides content up on first appearance; [index] staggers items in a list. */
+fun Modifier.appear(index: Int = 0): Modifier = composed {
+    val a = remember { androidx.compose.animation.core.Animatable(0f) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(index.coerceAtMost(10) * 45L)
+        a.animateTo(1f, tween(420, easing = androidx.compose.animation.core.FastOutSlowInEasing))
+    }
+    this.graphicsLayer { alpha = a.value; translationY = (1f - a.value) * 24.dp.toPx() }
+}
+
 /** Click with a soft spring scale instead of a ripple. */
 fun Modifier.bounceClick(enabled: Boolean = true, scaleDown: Float = 0.97f, onClick: () -> Unit): Modifier = composed {
     val interaction = remember { MutableInteractionSource() }

@@ -37,6 +37,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,6 +54,9 @@ import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.unit.dp
 import com.eyn.designtrainer.data.AppProject
 import com.eyn.designtrainer.data.Page
@@ -73,31 +77,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-
-/** Composes page screenshots side by side on a branded background. */
-private fun board(pages: List<Bitmap>, bg: Int, ink: Int, title: String): Bitmap {
-    val pad = 96; val gap = 64; val titleH = 180
-    val w = pages.sumOf { it.width } + gap * (pages.size - 1) + pad * 2
-    val h = pages.maxOf { it.height } + pad * 2 + titleH
-    val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-    val cv = Canvas(out)
-    cv.drawColor(bg)
-    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = ink; textSize = 72f; typeface = Typeface.DEFAULT_BOLD }
-    cv.drawText(title, pad.toFloat(), pad + 72f, paint)
-    var x = pad.toFloat()
-    val shadow = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x22000000 }
-    pages.forEach { b ->
-        val top = (pad + titleH).toFloat()
-        val rect = RectF(x, top, x + b.width, top + b.height)
-        cv.drawRoundRect(RectF(rect.left + 8, rect.top + 16, rect.right + 8, rect.bottom + 16), 56f, 56f, shadow)
-        cv.save()
-        cv.clipPath(Path().apply { addRoundRect(rect, 56f, 56f, Path.Direction.CW) })
-        cv.drawBitmap(b, x, top, null)
-        cv.restore()
-        x += b.width + gap
-    }
-    return out
-}
 
 @Composable
 fun ExportScreen(id: String) {
@@ -122,11 +101,8 @@ fun ExportScreen(id: String) {
         }
     }
 
-    suspend fun boardBitmap(): Bitmap {
-        val t = p.theme()
-        val list = shots()
-        return withContext(Dispatchers.Default) { board(list, t.surface.toArgb(), t.primary.toArgb(), p.name) }
-    }
+    val boardLayer = rememberGraphicsLayer()
+    suspend fun boardBitmap(): Bitmap = Exporter.capture(boardLayer)
 
     Column(Modifier.fillMaxSize()) {
         TopBar(tr("القوالب والتصدير", "Templates & export"), onBack = { nav.popBackStack() }) {
@@ -153,6 +129,21 @@ fun ExportScreen(id: String) {
                 }
             }
             Spacer(Modifier.height(16.dp))
+            Text(tr("لوحة العرض", "Presentation board"), style = Type.h3, color = c.text)
+            Text(tr("صورة واحدة فيها الهوية والألوان والخط وكل الصفحات، 4 في كل صف", "One image with identity, colors, type and every page, 4 per row"), style = Type.small, color = c.muted)
+            Spacer(Modifier.height(10.dp))
+            BoxWithConstraints(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).border(1.dp, c.outline, RoundedCornerShape(18.dp))) {
+                // Lay the board out at density 2 (a 3360px-wide export) and scale it down to fit here.
+                val density = LocalDensity.current
+                val boardPx = BOARD_WIDTH * 2f
+                val scale = with(density) { maxWidth.toPx() } / boardPx
+                Scaled(scale, designWidth = with(density) { boardPx.toDp() }) {
+                    Box(Modifier.drawWithContent { boardLayer.record { this@drawWithContent.drawContent() }; drawLayer(boardLayer) }) {
+                        CompositionLocalProvider(LocalDensity provides Density(2f, 1f)) { PresentationBoard(p) }
+                    }
+                }
+            }
+            Spacer(Modifier.height(16.dp))
             EynCard(Modifier.fillMaxWidth()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
@@ -173,7 +164,7 @@ fun ExportScreen(id: String) {
                     run {
                         val b = boardBitmap()
                         val png = Exporter.png(ctx, b, p.name + "_board")
-                        val pdf = Exporter.pdf(ctx, listOf(b) + shots(), p.name)
+                        val pdf = Exporter.pdf(ctx, listOf(b), p.name + "_board")
                         Exporter.share(ctx, listOf(png, pdf), "*/*")
                     }
                 }

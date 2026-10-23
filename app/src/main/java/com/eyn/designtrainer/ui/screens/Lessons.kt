@@ -68,6 +68,7 @@ import com.eyn.designtrainer.ui.components.EynCard
 import com.eyn.designtrainer.ui.components.LessonIllustration
 import com.eyn.designtrainer.ui.components.OutlineButton
 import com.eyn.designtrainer.ui.components.Pill
+import com.eyn.designtrainer.ui.components.appear
 import com.eyn.designtrainer.ui.components.PrimaryButton
 import com.eyn.designtrainer.ui.components.ProgressBar
 import com.eyn.designtrainer.ui.components.SquareIconButton
@@ -167,7 +168,7 @@ private fun PathView(d: AppData, current: Int, onOpen: (String) -> Unit) {
                 val lessons = unit.lessonIds.map { Content.lesson(it) }
                 val done = lessons.count { it.id in d.completed }
                 val open = com.eyn.designtrainer.data.Path.isUnlocked(unit.lessonIds.first(), d.completed)
-                EynCard(Modifier.fillMaxWidth(), color = if (open) c.surface else c.surfaceAlt) {
+                EynCard(Modifier.appear(ui + 1).fillMaxWidth(), color = if (open) c.surface else c.surfaceAlt) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             Modifier.size(48.dp).clip(RoundedCornerShape(16.dp)).background(if (done == lessons.size) c.successSoft else if (open) c.lilac else c.outline),

@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -93,6 +94,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.eyn.designtrainer.data.AppProject
 import com.eyn.designtrainer.data.Block
+import com.eyn.designtrainer.data.BlockItem
 import com.eyn.designtrainer.data.BlockKind
 import com.eyn.designtrainer.data.Page
 import com.eyn.designtrainer.data.argb
@@ -163,18 +165,19 @@ fun IdentityScreen(id: String) {
         TopBar(tr("هوية تطبيقك", "Your app identity"), onBack = { nav.popBackStack() }) {
             if (isNew) Text("1 / 3", style = Type.label, color = c.muted)
         }
+        // The logo preview stays pinned so every change below is visible immediately.
+        Box(
+            Modifier.padding(horizontal = 20.dp).fillMaxWidth().heightIn(min = 120.dp).clip(RoundedCornerShape(24.dp))
+                .background(p.theme().surface).border(1.dp, c.outline, RoundedCornerShape(24.dp)).padding(16.dp).animateContentSize(),
+            contentAlignment = Alignment.Center,
+        ) { LogoMark(p, 56.dp) }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
             Label(tr("اسم التطبيق", "App name"))
             OutlinedTextField(
                 p.name, { v -> set { it.copy(name = v.take(24)) } }, singleLine = true,
                 shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth(),
             )
-            Spacer(Modifier.height(16.dp))
             val t = p.theme()
-            Box(
-                Modifier.fillMaxWidth().heightIn(min = 150.dp).clip(RoundedCornerShape(24.dp)).background(t.surface).padding(20.dp).animateContentSize(),
-                contentAlignment = Alignment.Center,
-            ) { LogoMark(p, 60.dp) }
             Spacer(Modifier.height(10.dp))
             OptionChip(tr("افتح في مصمم الشعار — تحكم كامل وتصدير HD شفاف", "Open in logo designer — full control & transparent HD export"), false, Modifier.fillMaxWidth()) {
                 val design = logoDesign(p, lang)
@@ -274,7 +277,7 @@ fun IdentityScreen(id: String) {
                                 Box(Modifier.size(44.dp).clip(CircleShape).background(col).border(1.dp, c.outline, CircleShape))
                                 Spacer(Modifier.height(4.dp))
                                 Text(label, style = Type.small.copy(fontSize = 11.sp), color = c.text)
-                                Text(col.hex(), style = Type.small.copy(fontSize = 9.sp), color = c.muted)
+                                Text(col.hex(), style = Type.small.copy(fontSize = 9.sp, textDirection = androidx.compose.ui.text.style.TextDirection.Ltr), color = c.muted)
                             }
                         }
                     }
@@ -697,14 +700,23 @@ private fun BlockEditSheet(b: Block, p: AppProject, onChange: (Block) -> Unit, o
     }
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val t = p.theme()
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = c.surface) {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).navigationBarsPadding()) {
+    val lang = LocalLang.current
+    var iconFor by remember { mutableStateOf<Int?>(null) }
+    // statusBarsPadding keeps the sheet (and its handle) below the phone's status bar.
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = c.surface, modifier = Modifier.statusBarsPadding()) {
+        // Title and live preview stay pinned while the controls below scroll.
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
             Text(tr("تعديل: ", "Edit: ") + b.kind.label().t(), style = Type.h2, color = c.text)
-            Spacer(Modifier.height(12.dp))
-            BoxWithConstraints(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(t.bg).border(1.dp, c.outline, RoundedCornerShape(16.dp))) {
+            Spacer(Modifier.height(10.dp))
+            BoxWithConstraints(
+                Modifier.fillMaxWidth().heightIn(max = 220.dp).clip(RoundedCornerShape(16.dp)).background(t.bg).border(1.dp, c.outline, RoundedCornerShape(16.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
                 Scaled(maxWidth.value / 360f) { BlockView(b, p) }
             }
-
+            Spacer(Modifier.height(4.dp))
+        }
+        Column(Modifier.fillMaxWidth().weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).navigationBarsPadding()) {
             Label(tr("الشكل", "Style"))
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Variants.getValue(b.kind).forEachIndexed { i, name -> OptionChip(name.t(), b.variant == i) { onChange(b.copy(variant = i)) } }
@@ -719,6 +731,52 @@ private fun BlockEditSheet(b: Block, p: AppProject, onChange: (Block) -> Unit, o
                     shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth(),
                     singleLine = !(b.kind == BlockKind.TEXT && which == 1),
                 )
+            }
+
+            if (b.hasItems()) {
+                val items = b.itemsOr(lang)
+                fun setItems(list: List<BlockItem>, active: Int = b.active) = onChange(b.copy(items = list, active = active.coerceIn(0, (list.size - 1).coerceAtLeast(0))))
+                Label(
+                    when (b.kind) {
+                        BlockKind.FOOTER -> if (b.variant == 0) tr("أزرار شريط التبويبات", "Tab bar items") else tr("الروابط", "Links")
+                        BlockKind.LIST -> tr("صفوف القائمة", "List rows")
+                        BlockKind.CATEGORIES -> tr("الأقسام", "Categories")
+                        else -> tr("التبويبات", "Tabs")
+                    },
+                )
+                if (b.hasActiveItem()) Text(
+                    tr("اضغط الدائرة لتحديد العنصر النشط في هذه الصفحة", "Tap the circle to mark the active item on this page"),
+                    style = Type.small, color = c.muted, modifier = Modifier.padding(bottom = 6.dp),
+                )
+                items.forEachIndexed { i, item ->
+                    Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (b.hasActiveItem()) {
+                            val on = i == b.active
+                            Box(
+                                Modifier.size(26.dp).clip(CircleShape).border(2.dp, if (on) c.primary else c.outline, CircleShape).clickable { setItems(items, i) },
+                                contentAlignment = Alignment.Center,
+                            ) { if (on) Box(Modifier.size(12.dp).clip(CircleShape).background(c.primary)) }
+                            Spacer(Modifier.width(8.dp))
+                        }
+                        if (b.itemsHaveIcons()) {
+                            Box(
+                                Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(c.lilac).clickable { iconFor = i },
+                                contentAlignment = Alignment.Center,
+                            ) { FontIcon(item.icon.ifEmpty { "add" }, c.onLilac, 22f) }
+                            Spacer(Modifier.width(8.dp))
+                        }
+                        OutlinedTextField(
+                            item.label, { v -> setItems(items.toMutableList().also { it[i] = item.copy(label = v.take(24)) }) },
+                            singleLine = true, shape = RoundedCornerShape(12.dp), modifier = Modifier.weight(1f),
+                        )
+                        if (items.size > 1) Box(Modifier.size(40.dp).clip(CircleShape).clickable {
+                            setItems(items.toMutableList().also { it.removeAt(i) }, if (b.active >= i && b.active > 0) b.active - 1 else b.active)
+                        }, contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Delete, null, tint = c.danger, modifier = Modifier.size(20.dp)) }
+                    }
+                }
+                if (items.size < 6) OptionChip(tr("+ إضافة عنصر", "+ Add item"), false) {
+                    setItems(items + BlockItem(tr0(lang, "عنصر جديد", "New item"), if (b.itemsHaveIcons()) "star" else ""))
+                }
             }
 
             if (b.kind == BlockKind.HERO || b.kind == BlockKind.CARDS) {
@@ -746,7 +804,11 @@ private fun BlockEditSheet(b: Block, p: AppProject, onChange: (Block) -> Unit, o
             SliderRow(tr("المسافة الداخلية", "Inner spacing"), b.padding, 0f..40f, steps = 9) { onChange(b.copy(padding = it.roundToInt().toFloat())) }
             SliderRow(tr("استدارة الزوايا", "Corner radius"), b.radius, 0f..32f, steps = 7) { onChange(b.copy(radius = it.roundToInt().toFloat())) }
             NumStepper(tr("حجم النص", "Text size"), b.textScale * 100, 60f, 200f, step = 5f, suffix = "%") { onChange(b.copy(textScale = it / 100f)) }
-            NumStepper(tr("الارتفاع الأدنى", "Minimum height"), b.minHeight, 0f, 800f, step = 4f) { onChange(b.copy(minHeight = it)) }
+            NumStepper(tr("العرض", "Width"), b.widthPct * 100, 20f, 100f, step = 5f, suffix = "%") { onChange(b.copy(widthPct = it / 100f)) }
+            itemHeightLabel(b)?.let { label ->
+                NumStepper(label, if (b.itemHeight > 0) b.itemHeight else defaultItemHeight(b), 24f, 400f, step = 4f) { onChange(b.copy(itemHeight = it)) }
+            }
+            NumStepper(tr("الارتفاع الأدنى للقطعة", "Block minimum height"), b.minHeight, 0f, 800f, step = 4f) { onChange(b.copy(minHeight = it)) }
             Label(tr("الموضع في الصفحة", "Position on page"))
             Segmented(
                 listOf(tr("مع المحتوى", "With content"), tr("مثبّت في الأسفل", "Pinned to bottom")), if (b.pinBottom) 1 else 0,
@@ -757,6 +819,31 @@ private fun BlockEditSheet(b: Block, p: AppProject, onChange: (Block) -> Unit, o
             Spacer(Modifier.height(16.dp))
         }
     }
+    iconFor?.let { i ->
+        val items = b.itemsOr(lang)
+        IconPickerSheet(items.getOrNull(i)?.icon.orEmpty(), onDismiss = { iconFor = null }) { name ->
+            onChange(b.copy(items = items.toMutableList().also { if (i < it.size) it[i] = it[i].copy(icon = name) }))
+            iconFor = null
+        }
+    }
+}
+
+/** Label for the per-item height control, or null when the block has no sized items. */
+@Composable
+private fun itemHeightLabel(b: Block): String? = when (b.kind) {
+    BlockKind.BUTTON -> tr("ارتفاع الزر", "Button height")
+    BlockKind.SEARCH -> tr("ارتفاع شريط البحث", "Search bar height")
+    BlockKind.FORM -> tr("ارتفاع الحقول والزر", "Field & button height")
+    BlockKind.CARDS -> tr("ارتفاع صورة البطاقة", "Card image height")
+    BlockKind.HERO -> tr("ارتفاع البطاقة", "Card height")
+    BlockKind.CATEGORIES -> if (b.variant == 0) tr("حجم الدائرة", "Circle size") else null
+    BlockKind.LIST -> tr("ارتفاع الصف", "Row height")
+    else -> null
+}
+
+private fun defaultItemHeight(b: Block) = when (b.kind) {
+    BlockKind.BUTTON -> 50f; BlockKind.FORM -> 48f; BlockKind.SEARCH -> 48f; BlockKind.CARDS -> 120f
+    BlockKind.HERO -> 160f; BlockKind.CATEGORIES -> 54f; BlockKind.LIST -> 56f; else -> 48f
 }
 
 /** Which text fields a block exposes: 0 title, 1 subtitle, 2 button. */
