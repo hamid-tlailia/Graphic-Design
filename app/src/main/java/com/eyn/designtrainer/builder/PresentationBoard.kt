@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -22,6 +23,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
@@ -35,10 +38,12 @@ import com.eyn.designtrainer.i18n.tr
 /** Board width in dp; pages are laid out four per row. */
 const val BOARD_WIDTH = 1680
 private const val PHONE_W = 360
-private const val SCREEN_H = 740
 
-/** Phone screen height shared by all pages on the board and in exported code. */
-fun boardScreenHeight(p: AppProject): Int = maxOf(SCREEN_H, (p.pages.maxOfOrNull { it.height } ?: 0f).toInt() + 34)
+/**
+ * Phone screen height shared by all pages on the board and in exported code: a real phone's
+ * proportions. Longer pages are cut at the bottom while pinned blocks (tab bars) stay visible.
+ */
+const val BOARD_SCREEN_H = 740
 
 /**
  * A single presentation image of the whole app: identity header (logo, app icon, palette,
@@ -58,7 +63,8 @@ private fun BoardContent(p: AppProject) {
 
     Column(
         Modifier.width(BOARD_WIDTH.dp)
-            .background(Brush.verticalGradient(listOf(t.surface, Color.White, t.surface.copy(alpha = 0.6f))))
+            // Light at the top, settling into a dark shade at the bottom.
+            .background(Brush.verticalGradient(0f to t.surface, 0.3f to Color.White, 0.62f to t.surface, 1f to Color(0xFF2B2622).copy(alpha = 0.55f).compositeOver(t.surface)))
             .padding(60.dp),
     ) {
         // ------------------------------------------------------------ identity header
@@ -125,8 +131,7 @@ private fun BoardContent(p: AppProject) {
         Spacer(Modifier.height(56.dp))
 
         // ------------------------------------------------------------ screens, 4 per row
-        // Every phone gets the same height: the tallest page, so no screen is cut short.
-        val screenH = boardScreenHeight(p)
+        val screenH = BOARD_SCREEN_H
         p.pages.chunked(4).forEachIndexed { r, row ->
             Row(horizontalArrangement = Arrangement.spacedBy(40.dp)) {
                 row.forEachIndexed { i, page -> BoardPhone(page, p, r * 4 + i + 1, screenH) }
@@ -166,10 +171,24 @@ private fun BoardPhone(page: Page, p: AppProject, number: Int, screenH: Int) {
                         FontIcon("signal_cellular_alt", t.ink, 14f); FontIcon("wifi", t.ink, 14f); FontIcon("battery_full", t.ink, 14f)
                     }
                 }
-                PageView(page, p, minHeight = (screenH - 34).dp)
+                // Content fills the screen from the top and is cut where the phone ends;
+                // pinned blocks keep their place at the bottom edge.
+                Box(Modifier.fillMaxWidth().weight(1f).clipToBounds()) {
+                    Column(Modifier.fillMaxWidth().wrapContentHeight(Alignment.Top, unbounded = true)) {
+                        page.blocks.filter { !it.pinBottom }.forEach { BlockView(it, p) }
+                    }
+                }
+                Column(Modifier.fillMaxWidth()) { page.blocks.filter { it.pinBottom }.forEach { BlockView(it, p) } }
             }
         }
-        Spacer(Modifier.height(16.dp))
+        // Soft shadow under the phone.
+        androidx.compose.foundation.Canvas(Modifier.padding(top = 4.dp).width((PHONE_W - 40).dp).height(26.dp)) {
+            val r = size.width / 2
+            scale(1f, size.height / size.width) {
+                drawCircle(Brush.radialGradient(listOf(Color.Black.copy(alpha = 0.45f), Color.Transparent), center, r), r)
+            }
+        }
+        Spacer(Modifier.height(10.dp))
         Text(
             "%02d · %s".format(number, page.name),
             fontFamily = t.font, fontWeight = FontWeight.Bold, fontSize = 22.sp, color = t.ink.copy(alpha = 0.7f),

@@ -710,8 +710,8 @@ object CodeGen {
     fun html(p: AppProject, lang: Lang, image: (String) -> String? = { null }, designs: (String) -> Design? = { null }): String {
         val t = T(p, lang, image, designs)
         val fonts = listOf(t.font, t.logoFont).distinct().joinToString("&") { fontLink(it) }
-        // All phones share one height (the tallest page), like the presentation board.
-        val screenH = boardScreenHeight(p) + 2
+        // Every phone has the same, real-phone height, like the presentation board.
+        val screenH = BOARD_SCREEN_H
         val screens = p.pages.mapIndexed { i, page ->
             val (top, bottom) = t.page(page, p)
             """    <figure class="phone">
@@ -735,14 +735,14 @@ ${html(bottom, t, "        ")}
 <link href="https://fonts.googleapis.com/icon?family=${iconFamily[t.iconStyle.coerceIn(iconFamily.indices)]}" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; }
-  html { background: ${t.surface}; }
+  html { background: color-mix(in srgb, #2B2622 55%, ${t.surface}); }
   body { font-family: '${t.font}', system-ui, sans-serif; color: ${t.ink}; padding: 40px 20px;
-         background: linear-gradient(${t.surface}, #fff 40%, ${t.surface}); min-height: 100vh; }
+         background: linear-gradient(${t.surface}, #fff 30%, ${t.surface} 62%, color-mix(in srgb, #2B2622 55%, ${t.surface})); min-height: 100vh; }
   .board { max-width: 1680px; margin: 0 auto; display: flex; flex-direction: column; gap: 48px; }
   .phones { display: flex; flex-wrap: wrap; gap: 40px; justify-content: center; align-items: flex-start; }
   .phone { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px; }
   .screen { width: 378px; background: ${t.bg}; border: 9px solid #15131F; border-radius: 52px; overflow: hidden;
-            display: flex; flex-direction: column; padding-top: 18px; box-shadow: 0 20px 40px rgba(0,0,0,.12); }
+            display: flex; flex-direction: column; padding-top: 18px; box-shadow: 0 24px 40px -12px rgba(0,0,0,.45); }
   .scroll { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; }
   .scroll::-webkit-scrollbar { display: none; }
   figcaption { font-weight: 700; font-size: 18px; color: ${t.ink(0.7f)}; }

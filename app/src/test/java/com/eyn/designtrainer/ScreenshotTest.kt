@@ -266,6 +266,16 @@ class ScreenshotTest {
         }
     }
 
+    @Test fun s48_board() {
+        val p = shop(Lang.AR)
+        val d = data(Lang.AR).copy(designs = listOf(freeDesign()))
+        still("48_board") {
+            CompositionLocalProvider(LocalData provides d) {
+                com.eyn.designtrainer.builder.Scaled(400f / 1680f, designWidth = 1680.dp) { com.eyn.designtrainer.builder.PresentationBoard(p) }
+            }
+        }
+    }
+
     @Test fun s43_canvas_shapes() {
         val st = EditorState(blankDesign(Lang.AR).copy(id = "d3", w = 360f, h = 760f))
         com.eyn.designtrainer.builder.Shapes.all.indices.forEach { i ->
