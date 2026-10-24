@@ -96,6 +96,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.eyn.designtrainer.data.AppProject
 import com.eyn.designtrainer.data.Block
+import com.eyn.designtrainer.data.Design
 import com.eyn.designtrainer.data.BlockItem
 import com.eyn.designtrainer.data.BlockKind
 import com.eyn.designtrainer.data.Page
@@ -325,7 +326,7 @@ fun IdentityScreen(id: String) {
 
 /** Popular picks shown before opening the full icon store. */
 private val QuickLogoIcons = listOf(
-    "local_cafe", "star", "favorite", "bolt", "shopping_bag", "home", "visibility", "school", "restaurant", "spa",
+    "local_cafe", "star", "favorite", "bolt", "shopping_bag", "home", "brush", "school", "restaurant", "spa",
     "pets", "eco", "diamond", "rocket_launch", "palette", "camera_alt", "music_note", "fitness_center", "local_florist", "auto_awesome",
 )
 
@@ -351,7 +352,9 @@ fun BlockLibraryScreen(id: String, pageId: String) {
         ChipRow(kinds.map { it.label().t() }, kindIdx, { kindIdx = it }, Modifier.padding(bottom = 8.dp))
         val kind = kinds[kindIdx]
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
-            Variants.getValue(kind).withIndex().chunked(2).forEach { row ->
+            val names = Variants.getValue(kind)
+            val order = if (kind == BlockKind.CUSTOM) CV.libraryOrder else names.indices.toList()
+            order.map { IndexedValue(it, names[it]) }.chunked(2).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(bottom = 12.dp)) {
                     row.forEach { (v, name) ->
                         val key = kind to v
@@ -403,6 +406,8 @@ fun BlockLibraryScreen(id: String, pageId: String) {
 @Composable
 fun PageBuilderScreen(id: String) {
     val c = Eyn.c
+    val data = LocalData.current
+    val lang = LocalLang.current
     val vm = LocalVm.current
     val nav = LocalNav.current
     val ctx = LocalContext.current
@@ -502,11 +507,17 @@ fun PageBuilderScreen(id: String) {
                         ) {
                             BlockAction(tr("تعديل", "Edit"), Icons.Rounded.Edit) { editing = b.id }
                             BlockAction(tr("تكرار", "Duplicate"), Icons.Rounded.ContentCopy) {
-                                val i = blocks.indexOf(b); setBlocks(blocks.toMutableList().apply { add(i + 1, b.copy(id = newId())) })
+                                // A free block's drawing is copied too, so the two can be edited separately.
+                                val drawing = data.designs.firstOrNull { it.id == b.designId }
+                                val copyId = if (drawing != null) newId().also { vm.saveDesign(drawing.copy(id = it)) } else b.designId
+                                val i = blocks.indexOf(b); setBlocks(blocks.toMutableList().apply { add(i + 1, b.copy(id = newId(), designId = copyId)) })
                             }
                             BlockAction(tr("أعلى", "Up"), Icons.Rounded.KeyboardArrowUp, enabled = gi > 0) { move(b, -1) }
                             BlockAction(tr("أسفل", "Down"), Icons.Rounded.KeyboardArrowDown, enabled = gi < group.lastIndex) { move(b, 1) }
-                            BlockAction(tr("حذف", "Delete"), Icons.Rounded.Delete) { setBlocks(blocks - b); selected = null }
+                            BlockAction(tr("حذف", "Delete"), Icons.Rounded.Delete) {
+                                setBlocks(blocks - b); selected = null
+                                if (b.designId.isNotEmpty()) vm.deleteDesign(b.designId)
+                            }
                         }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -616,14 +627,25 @@ fun PageBuilderScreen(id: String) {
     editing?.let { bid ->
         val b = page.blocks.firstOrNull { it.id == bid }
         if (b == null) editing = null
-        else BlockEditSheet(b, p, onChange = { nb -> setBlocks(page.blocks.map { if (it.id == bid) nb else it }) }, onDismiss = { editing = null })
+        else BlockEditSheet(
+            b, p, onChange = { nb -> setBlocks(page.blocks.map { if (it.id == bid) nb else it }) }, onDismiss = { editing = null },
+            onProject = { f -> vm.updateProject(id, f) }, onIdentity = { editing = null; nav.navigate(Routes.identity(id)) },
+            onDraw = {
+                val did = b.designId.ifEmpty { newId() }
+                if (data.designs.none { it.id == did }) vm.saveDesign(
+                    Design(id = did, name = tr0(lang, "قطعة حرّة", "Free block"), kind = BLOCK_DESIGN, w = 360f, h = 200f, bg = 0x00000000, els = emptyList()),
+                )
+                if (b.designId != did) setBlocks(page.blocks.map { if (it.id == bid) it.copy(designId = did) else it })
+                editing = null
+                nav.navigate(Routes.canvas(did))
+            },
+        )
     }
 
     if (addingPage) {
         val suggestions = listOf(tr("القائمة", "Menu"), tr("السلة", "Cart"), tr("حسابي", "Account"), tr("تسجيل الدخول", "Sign in"))
         val fallback = tr("صفحة جديدة", "New page")
         var name by remember { mutableStateOf(suggestions.firstOrNull { s -> p.pages.none { it.name == s } } ?: fallback) }
-        val lang = LocalLang.current
         AlertDialog(
             onDismissRequest = { addingPage = false },
             containerColor = c.surface,
@@ -694,7 +716,10 @@ private fun BlockAction(label: String?, icon: androidx.compose.ui.graphics.vecto
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun BlockEditSheet(b: Block, p: AppProject, onChange: (Block) -> Unit, onDismiss: () -> Unit) {
+private fun BlockEditSheet(
+    b: Block, p: AppProject, onChange: (Block) -> Unit, onDismiss: () -> Unit,
+    onProject: ((AppProject) -> AppProject) -> Unit, onIdentity: () -> Unit, onDraw: () -> Unit,
+) {
     val c = Eyn.c
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -737,6 +762,31 @@ private fun BlockEditSheet(b: Block, p: AppProject, onChange: (Block) -> Unit, o
                 Variants.getValue(b.kind).forEachIndexed { i, name -> OptionChip(name.t(), b.variant == i) { onChange(b.copy(variant = i)) } }
             }
 
+            if (b.kind == BlockKind.CUSTOM && b.variant == CV.FREE) {
+                Label(tr("التصميم", "Design"))
+                Text(
+                    tr("ارسم هذه القطعة بحرية في الاستوديو: نصوص وأشكال وصور وأيقونات وأزرار بأي ترتيب. ارجع بعدها وستظهر هنا.",
+                        "Draw this block freely in the studio: text, shapes, photos, icons and buttons, placed anywhere. Come back and it shows up here."),
+                    style = Type.small, color = c.muted, modifier = Modifier.padding(bottom = 8.dp),
+                )
+                PrimaryButton(if (b.designId.isEmpty()) tr("ارسم القطعة", "Draw this block") else tr("عدّل الرسم", "Edit the drawing"), onClick = onDraw)
+            }
+            if (b.kind == BlockKind.HEADER && (b.variant == 0 || b.variant == 4) && p.applyIdentity) {
+                // The header shows the project logo; let it be changed right here.
+                Label(tr("الشعار", "Logo"))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (p.logoStyle == 0) {
+                        Box(
+                            Modifier.size(52.dp).clip(RoundedCornerShape(14.dp)).background(c.lilac).clickable { iconFor = LOGO_ICON },
+                            contentAlignment = Alignment.Center,
+                        ) { FontIcon(p.logoIcon, c.onLilac, 26f, style = p.iconStyle) }
+                        Spacer(Modifier.width(10.dp))
+                        OptionChip(tr("تغيير أيقونة الشعار", "Change logo icon"), false) { iconFor = LOGO_ICON }
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    OptionChip(tr("كل إعدادات الهوية", "All identity settings"), false) { onIdentity() }
+                }
+            }
             val fields = fieldsFor(b)
             fields.forEach { (label, which) ->
                 Label(label)
@@ -836,6 +886,7 @@ private fun BlockEditSheet(b: Block, p: AppProject, onChange: (Block) -> Unit, o
                             singleLine = true, shape = RoundedCornerShape(12.dp), modifier = Modifier.weight(1f),
                             placeholder = { Text(tr("النص", "Text")) },
                         ) else Text(if (b.itemsArePayments()) Shapes.paymentName(item.icon).t() else item.icon, style = Type.small, color = c.muted, modifier = Modifier.weight(1f))
+                        if (b.kind == BlockKind.CUSTOM && CV.on(b.variant)) Text(CV.onLabel(b.variant).t(), style = Type.small, color = c.muted)
                         if (b.kind == BlockKind.CUSTOM && CV.on(b.variant)) Switch(
                             item.on, { v -> setItems(items.toMutableList().also { it[i] = item.copy(on = v) }) },
                             modifier = Modifier.padding(horizontal = 4.dp),
@@ -865,7 +916,7 @@ private fun BlockEditSheet(b: Block, p: AppProject, onChange: (Block) -> Unit, o
                         OutlinedTextField(
                             item.note, { v -> setItems(items.toMutableList().also { it[i] = item.copy(note = v.take(200)) }) },
                             shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth(), maxLines = 3,
-                            placeholder = { Text(tr("نص التعليق", "Review text")) },
+                            placeholder = { Text(CV.noteHint(b.variant).t()) },
                         )
                     }
                     if (b.kind == BlockKind.CUSTOM && CV.qty(b.variant)) {
@@ -931,9 +982,13 @@ private fun BlockEditSheet(b: Block, p: AppProject, onChange: (Block) -> Unit, o
     }
     iconFor?.let { i ->
         val items = b.itemsOr(lang)
-        val current = if (i == BLOCK_ICON) b.icon else items.getOrNull(i)?.icon.orEmpty()
+        val current = when (i) { BLOCK_ICON -> b.icon; LOGO_ICON -> p.logoIcon; else -> items.getOrNull(i)?.icon.orEmpty() }
         IconPickerSheet(current, onDismiss = { iconFor = null }, style = p.iconStyle) { name ->
-            onChange(if (i == BLOCK_ICON) b.copy(icon = name) else b.copy(items = items.toMutableList().also { if (i < it.size) it[i] = it[i].copy(icon = name) }))
+            when (i) {
+                LOGO_ICON -> onProject { it.copy(logoIcon = name) }
+                BLOCK_ICON -> onChange(b.copy(icon = name))
+                else -> onChange(b.copy(items = items.toMutableList().also { if (i < it.size) it[i] = it[i].copy(icon = name) }))
+            }
             iconFor = null
         }
     }
@@ -958,6 +1013,7 @@ private fun BlockEditSheet(b: Block, p: AppProject, onChange: (Block) -> Unit, o
 }
 
 private const val BLOCK_ICON = -1
+private const val LOGO_ICON = -2
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1005,6 +1061,8 @@ private fun itemHeightLabel(b: Block): String? = when (b.kind) {
         CV.PROMO, CV.ADD_BAR -> tr("ارتفاع الحقل والزر", "Field & button height")
         CV.BANNER, CV.PRODUCT -> tr("ارتفاع الصورة", "Image height")
         CV.PROFILE -> tr("حجم الصورة الشخصية", "Avatar size")
+        CV.EMPTY -> tr("حجم الأيقونة", "Icon size")
+        CV.ONBOARD -> tr("ارتفاع الصورة", "Image height")
         else -> null
     }
     else -> null
@@ -1015,7 +1073,7 @@ private fun defaultItemHeight(b: Block) = when (b.kind) {
     BlockKind.HERO -> 160f; BlockKind.CATEGORIES -> 54f; BlockKind.LIST -> 56f
     BlockKind.CUSTOM -> when (b.variant) {
         CV.ICON_ROW -> 52f; CV.ICON_GRID -> 56f; CV.CARD_GRID -> 84f; CV.CART -> 64f; CV.PAY_LOGOS -> 30f; CV.ADD_BAR -> 52f
-        CV.BANNER -> 150f; CV.PRODUCT -> 220f; CV.PROFILE -> 60f; else -> 56f
+        CV.BANNER -> 150f; CV.PRODUCT -> 220f; CV.PROFILE -> 60f; CV.EMPTY -> 96f; CV.ONBOARD -> 260f; else -> 56f
     }
     else -> 48f
 }
@@ -1046,6 +1104,13 @@ private fun fieldsFor(b: Block): List<Pair<String, Int>> = when (b.kind) {
             CV.PROFILE -> listOf(tr("الاسم", "Name") to 0, tr("البريد أو الوصف", "Email or detail") to 1, tr("نص الزر", "Button text") to 2)
             CV.ALERT -> listOf(title, tr("التفاصيل", "Details") to 3)
             CV.ADD_BAR -> listOf(tr("نص الزر", "Button text") to 2, tr("السعر", "Price") to 4, currency)
+            CV.FREE -> emptyList()
+            CV.NOTIFS, CV.FAQ, CV.TIMELINE, CV.COUNTDOWN -> listOf(title)
+            CV.CHAT -> listOf(tr("نص حقل الكتابة", "Message field text") to 1)
+            CV.CALENDAR -> listOf(tr("الشهر", "Month") to 0)
+            CV.EMPTY -> listOf(title, tr("الوصف", "Description") to 3, tr("نص الزر", "Button text") to 2)
+            CV.ONBOARD -> listOf(title, tr("الوصف", "Description") to 3, tr("نص الزر", "Button text") to 2, tr("رابط التخطي", "Skip link") to 1)
+            CV.PRICING -> listOf(title, currency, tr("المدة (مثل / شهرياً)", "Period (e.g. / month)") to 3, tr("نص الزر", "Button text") to 2)
             else -> listOf(title, currency)
         }
     }

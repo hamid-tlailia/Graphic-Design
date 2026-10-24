@@ -207,7 +207,29 @@ class ScreenshotTest {
             Page(id = "s3", name = if (lang == Lang.AR) "عناصر" else "Extras", height = 1200f, blocks = listOf(
                 c(cv.PROFILE), c(cv.STATS), c(cv.ALERT), c(cv.BANNER), c(cv.ICON_GRID), c(cv.DIVIDER), c(cv.TOGGLES),
             )),
+            Page(id = "s4", name = if (lang == Lang.AR) "تواصل" else "Contact", height = 1300f, blocks = listOf(
+                c(cv.FREE).copy(designId = "free1"), c(cv.NOTIFS), c(cv.CHAT), c(cv.FAQ),
+            )),
+            Page(id = "s5", name = if (lang == Lang.AR) "الطلب" else "Order", height = 1300f, blocks = listOf(
+                c(cv.TIMELINE), c(cv.CALENDAR), c(cv.COUNTDOWN), c(cv.PRICING),
+            )),
+            Page(id = "s6", name = if (lang == Lang.AR) "ترحيب" else "Welcome", height = 1100f, blocks = listOf(
+                c(cv.ONBOARD), c(cv.EMPTY),
+            )),
         ))
+    }
+
+    /** A game-style header drawn freely, used by the free block in [shop]. */
+    private fun freeDesign(): Design {
+        val st = EditorState(blankDesign(Lang.AR).copy(id = "free1", w = 360f, h = 150f, bg = 0xFF2A2470, kind = com.eyn.designtrainer.builder.BLOCK_DESIGN))
+        fun add(t: ElType, f: (com.eyn.designtrainer.data.El) -> com.eyn.designtrainer.data.El, variant: Int = 0) { st.add(t, Lang.AR, variant = variant); st.updateEl(st.selectedId!!, null, f) }
+        add(ElType.AVATAR, { it.copy(x = 286f, y = 20f, w = 56f, h = 56f, bg = 0xFFF2603F, fg = 0xFFFFFFFF) })
+        add(ElType.TEXT, { it.copy(x = 120f, y = 24f, w = 156f, h = 26f, text = "المستوى 5", fg = 0xFFFFFFFF, fontSize = 20f, align = 2) })
+        add(ElType.PROGRESS, { it.copy(x = 120f, y = 60f, w = 156f, h = 10f, value = 0.7f, bg = 0x33FFFFFF, fg = 0xFFFFC845, radius = 5f) })
+        add(ElType.SHAPE, { it.copy(x = 18f, y = 20f, w = 90f, h = 40f, text = "★ 1250", fontSize = 15f, bold = true, bg = 0xFFFFC845, fg = 0xFF2A2470) }, variant = 25)
+        listOf(0, 1, 2).forEach { i -> add(ElType.ICON, { it.copy(x = 20f + i * 30f, y = 96f, w = 26f, h = 26f, icon = "favorite", fg = 0xFFF2603F) }) }
+        add(ElType.BUTTON, { it.copy(x = 200f, y = 94f, w = 142f, h = 40f, text = "العب الآن", bg = 0xFFF2603F, radius = 20f) })
+        return st.design
     }
 
     /** Renders [content] standalone (no navigation) and saves it. */
@@ -221,17 +243,24 @@ class ScreenshotTest {
         File(File("build/screens").apply { mkdirs() }, "$name.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
-    @Test fun s42_shop_pages() {
-        val p = shop(Lang.AR)
-        still("42_shop_pages") {
-            androidx.compose.foundation.layout.Row(
-                androidx.compose.ui.Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color(0xFFE9E7F2)),
-                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
-            ) {
-                p.pages.forEach { page ->
-                    androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.width(128.dp).background(androidx.compose.ui.graphics.Color.White)) {
-                        com.eyn.designtrainer.builder.Scaled(128f / 360f) { com.eyn.designtrainer.builder.PageView(page, p) }
-                    }
+    @Test fun s42_shop_pages() = shopStill("42_shop_pages", 0..2)
+    @Test fun s47_shop_pages_more() = shopStill("47_shop_pages_more", 3..5)
+
+    private fun shopStill(name: String, range: IntRange) {
+        val p = shop(Lang.AR).let { it.copy(pages = it.pages.slice(range)) }
+        val d = data(Lang.AR).copy(designs = listOf(freeDesign()))
+        still(name) { CompositionLocalProvider(LocalData provides d) { shopRow(p) } }
+    }
+
+    @androidx.compose.runtime.Composable
+    private fun shopRow(p: AppProject) {
+        androidx.compose.foundation.layout.Row(
+            androidx.compose.ui.Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color(0xFFE9E7F2)),
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
+        ) {
+            p.pages.forEach { page ->
+                androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.width(128.dp).background(androidx.compose.ui.graphics.Color.White)) {
+                    com.eyn.designtrainer.builder.Scaled(128f / 360f) { com.eyn.designtrainer.builder.PageView(page, p) }
                 }
             }
         }
@@ -273,9 +302,29 @@ class ScreenshotTest {
         org.junit.Assert.assertTrue(cleared.itemsOr(Lang.AR).isEmpty())
     }
 
+    @Test fun logoIconCanBeChangedAgain() {
+        val vm = AppViewModel(ApplicationProvider.getApplicationContext<Application>())
+        repeat(200) { if (vm.data.value == null) { org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle(); Thread.sleep(10) } }
+        val d = data(Lang.AR).let { it.copy(projects = it.projects.map { p -> p.copy(logoIcon = "menu") }) }
+        vm.update { d }
+        rule.setContent {
+            val live by vm.data.collectAsState()
+            CompositionLocalProvider(LocalData provides (live ?: d), LocalVm provides vm) { EynTheme(false, Lang.AR) { AppNav(false, startOverride = Routes.identity("p1")) } }
+        }
+        rule.mainClock.autoAdvance = false
+        repeat(20) { rule.mainClock.advanceTimeBy(100) }
+        val ctx = ApplicationProvider.getApplicationContext<Application>()
+        val star = com.eyn.designtrainer.builder.IconFont.glyph(ctx, "star", 0)!!
+        rule.onAllNodesWithText(star)[0].performClick()
+        settle()
+        println("LOGO after quick pick: " + vm.data.value!!.projects.first().logoIcon)
+        org.junit.Assert.assertEquals("star", vm.data.value!!.projects.first().logoIcon)
+    }
+
     @Test fun s45_shop_code() {
         val dir = File("build/screens").apply { mkdirs() }
-        File(dir, "shop_ar.html").writeText(com.eyn.designtrainer.builder.CodeGen.html(shop(Lang.AR), Lang.AR))
+        val free = freeDesign()
+        File(dir, "shop_ar.html").writeText(com.eyn.designtrainer.builder.CodeGen.html(shop(Lang.AR), Lang.AR, designs = { if (it == free.id) free else null }))
         File(dir, "shop_en.html").writeText(com.eyn.designtrainer.builder.CodeGen.html(shop(Lang.EN), Lang.EN))
         File(dir, "Shop_ar.js").writeText(com.eyn.designtrainer.builder.CodeGen.reactNative(shop(Lang.AR), Lang.AR))
     }

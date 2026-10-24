@@ -188,10 +188,12 @@ fun StudioScreen() {
             }
         }
 
-        if (d.designs.isNotEmpty()) {
+        // Free blocks keep their drawings as designs too; they belong to their project, not to this list.
+        val mine = d.designs.filter { it.kind != com.eyn.designtrainer.builder.BLOCK_DESIGN }
+        if (mine.isNotEmpty()) {
             Box(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) { SectionTitle(tr("تصاميمي", "My designs")) }
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                d.designs.forEach { ds ->
+                mine.forEach { ds ->
                     Column(
                         Modifier.width(150.dp).clip(RoundedCornerShape(20.dp)).background(c.surface).border(1.dp, c.outline, RoundedCornerShape(20.dp))
                             .combinedClickable(onClick = { nav.navigate(Routes.canvas(ds.id)) }, onLongClick = { deleting = ds.id to false })

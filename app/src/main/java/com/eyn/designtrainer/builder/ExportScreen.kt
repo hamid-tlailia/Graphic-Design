@@ -86,6 +86,8 @@ fun ExportScreen(id: String) {
     val ctx = LocalContext.current
     val lang = LocalLang.current
     val p: AppProject = LocalData.current.projects.firstOrNull { it.id == id } ?: return
+    val allDesigns = LocalData.current.designs
+    val designs: (String) -> com.eyn.designtrainer.data.Design? = { did -> allDesigns.firstOrNull { it.id == did } }
     val layers = remember { mutableMapOf<String, GraphicsLayer>() }
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
@@ -175,10 +177,10 @@ fun ExportScreen(id: String) {
                     }
                 }
                 ExportRow(Icons.Rounded.Code, tr("كود HTML / CSS", "HTML / CSS code"), tr("للمتقدمين", "Advanced")) {
-                    run { Exporter.share(ctx, listOf(codeFile(ctx, "index.html") { CodeGen.html(p, lang, it) }), "text/html") }
+                    run { Exporter.share(ctx, listOf(codeFile(ctx, "index.html") { CodeGen.html(p, lang, it, designs) }), "text/html") }
                 }
                 ExportRow(Icons.Rounded.PhoneAndroid, tr("كود React Native", "React Native code"), tr("للمتقدمين", "Advanced"), last = true) {
-                    run { Exporter.share(ctx, listOf(codeFile(ctx, "App.js") { CodeGen.reactNative(p, lang, it) }), "text/plain") }
+                    run { Exporter.share(ctx, listOf(codeFile(ctx, "App.js") { CodeGen.reactNative(p, lang, it, designs) }), "text/plain") }
                 }
             }
             Spacer(Modifier.height(16.dp))
@@ -189,8 +191,8 @@ fun ExportScreen(id: String) {
                     val b = boardBitmap()
                     val files = mutableListOf<File>(Exporter.png(ctx, b, p.name + "_board"))
                     files += Exporter.pdf(ctx, listOf(b) + shots(), p.name)
-                    files += codeFile(ctx, "index.html") { CodeGen.html(p, lang, it) }
-                    files += codeFile(ctx, "App.js") { CodeGen.reactNative(p, lang, it) }
+                    files += codeFile(ctx, "index.html") { CodeGen.html(p, lang, it, designs) }
+                    files += codeFile(ctx, "App.js") { CodeGen.reactNative(p, lang, it, designs) }
                     Exporter.share(ctx, files, "*/*")
                 }
             }

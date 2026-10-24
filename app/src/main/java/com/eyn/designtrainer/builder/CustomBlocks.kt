@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -22,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -39,7 +41,9 @@ object CV {
     const val SECTION = 7; const val PROMO = 8; const val STEPS = 9; const val TOGGLES = 10
     const val REVIEWS = 11; const val DIVIDER = 12; const val BANNER = 13; const val PRODUCT = 14
     const val STATS = 15; const val PROFILE = 16; const val ALERT = 17; const val ICON_GRID = 18
-    const val ADD_BAR = 19; const val CHECKS = 20
+    const val ADD_BAR = 19; const val CHECKS = 20; const val FREE = 21
+    const val NOTIFS = 22; const val CHAT = 23; const val FAQ = 24; const val TIMELINE = 25; const val CALENDAR = 26
+    const val EMPTY = 27; const val ONBOARD = 28; const val PRICING = 29; const val COUNTDOWN = 30
 
     val names: List<L> = listOf(
         L("صف أيقونات ونصوص", "Icon row"), L("قائمة عناصر وأسعار", "Item list"), L("شبكة بطاقات", "Card grid"),
@@ -49,23 +53,30 @@ object CV {
         L("فاصل", "Divider"), L("صورة / بانر", "Image banner"), L("تفاصيل منتج", "Product details"),
         L("إحصائيات", "Stats"), L("ملف شخصي", "Profile card"), L("تنبيه", "Alert"), L("شبكة أيقونات", "Icon grid"),
         L("شريط إضافة للسلة", "Add-to-cart bar"), L("خيارات إضافية", "Extras checklist"),
+        L("قطعة حرّة — ارسمها بنفسك", "Free block — draw it yourself"),
+        L("قائمة إشعارات", "Notifications"), L("محادثة", "Chat"), L("أسئلة شائعة", "FAQ"), L("تتبع الطلب", "Order tracking"),
+        L("تقويم", "Calendar"), L("شاشة فارغة", "Empty state"), L("شريحة ترحيب", "Onboarding slide"), L("باقات الأسعار", "Pricing plans"),
+        L("عدّاد تنازلي", "Countdown"),
     )
 
-    private val noItems = setOf(SECTION, PROMO, DIVIDER, BANNER, PRODUCT, PROFILE, ALERT, ADD_BAR)
+    /** Shown first in the library: the block you draw yourself. */
+    val libraryOrder: List<Int> = listOf(FREE) + (0 until names.size).filter { it != FREE }
+
+    private val noItems = setOf(SECTION, PROMO, DIVIDER, BANNER, PRODUCT, PROFILE, ALERT, ADD_BAR, FREE, CALENDAR, EMPTY, ONBOARD)
     fun hasItems(v: Int) = v !in noItems
-    fun icons(v: Int) = v in setOf(ICON_ROW, ITEM_LIST, CARD_GRID, TOGGLES, ICON_GRID)
+    fun icons(v: Int) = v in setOf(ICON_ROW, ITEM_LIST, CARD_GRID, TOGGLES, ICON_GRID, NOTIFS)
     fun payments(v: Int) = v == PAY_METHODS || v == PAY_LOGOS
     fun labels(v: Int) = v != PAY_LOGOS
-    fun value(v: Int) = v in setOf(ICON_ROW, ITEM_LIST, CARD_GRID, CART, SUMMARY, REVIEWS, STATS, CHECKS)
+    fun value(v: Int) = v in setOf(ICON_ROW, ITEM_LIST, CARD_GRID, CART, SUMMARY, REVIEWS, STATS, CHECKS, NOTIFS, CHAT, TIMELINE, PRICING, COUNTDOWN)
     fun image(v: Int) = v in setOf(CARD_GRID, CART, REVIEWS)
-    fun active(v: Int) = v == PAY_METHODS || v == STEPS
-    fun note(v: Int) = v == REVIEWS
+    fun active(v: Int) = v == PAY_METHODS || v == STEPS || v == TIMELINE
+    fun note(v: Int) = v in setOf(REVIEWS, NOTIFS, FAQ, TIMELINE, PRICING)
     fun qty(v: Int) = v == CART
-    fun on(v: Int) = v == TOGGLES || v == CHECKS
-    fun blockImage(v: Int) = v in setOf(BANNER, PRODUCT, PROFILE)
-    fun blockIcon(v: Int) = v == ALERT
+    fun on(v: Int) = v in setOf(TOGGLES, CHECKS, NOTIFS, CHAT, FAQ, PRICING)
+    fun blockImage(v: Int) = v in setOf(BANNER, PRODUCT, PROFILE, ONBOARD)
+    fun blockIcon(v: Int) = v == ALERT || v == EMPTY
     /** Long text (body) for these. */
-    fun body(v: Int) = v == PRODUCT || v == ALERT
+    fun body(v: Int) = v in setOf(PRODUCT, ALERT, EMPTY, ONBOARD, PRICING)
     fun price(v: Int) = v == PRODUCT || v == ADD_BAR
 
     /** Optional parts the user can switch off, keyed as stored in [Block.hidden]. */
@@ -77,14 +88,30 @@ object CV {
         ALERT -> listOf(OPT_CLOSE to L("زر الإغلاق", "Close button"))
         ADD_BAR -> listOf(OPT_STEPPER to L("أزرار + و −", "+ / − buttons"))
         STEPS -> listOf(OPT_LABELS to L("أسماء الخطوات", "Step names"))
+        NOTIFS -> listOf(OPT_ICON to L("الأيقونات", "Icons"), OPT_DOT to L("نقطة غير المقروء", "Unread dot"))
+        CHAT -> listOf(OPT_INPUT to L("حقل الكتابة", "Message field"), OPT_IMAGE to L("الصورة الشخصية", "Avatar"))
+        ONBOARD -> listOf(OPT_DOTS to L("نقاط التنقل", "Page dots"))
         else -> emptyList()
+    }
+
+    /** What the per-item switch means, by variant. */
+    fun onLabel(v: Int): L = when (v) {
+        NOTIFS -> L("غير مقروء", "Unread"); CHAT -> L("رسالتي", "Mine"); FAQ -> L("مفتوح", "Open")
+        PRICING -> L("مميّزة", "Featured"); CHECKS -> L("محدد", "Checked"); else -> L("مفعّل", "On")
+    }
+
+    fun noteHint(v: Int): L = when (v) {
+        NOTIFS -> L("نص الإشعار", "Notification text"); FAQ -> L("الإجابة", "Answer"); TIMELINE -> L("التفاصيل", "Details")
+        PRICING -> L("المزايا (سطر لكل ميزة)", "Features (one per line)"); else -> L("نص التعليق", "Review text")
     }
 
     const val OPT_IMAGE = "image"; const val OPT_STEPPER = "stepper"; const val OPT_DELETE = "delete"; const val OPT_TOTAL = "total"
     const val OPT_RATING = "rating"; const val OPT_FAV = "fav"; const val OPT_CLOSE = "close"; const val OPT_LABELS = "labels"
+    const val OPT_ICON = "icon"; const val OPT_DOT = "dot"; const val OPT_INPUT = "input"; const val OPT_DOTS = "dots"
 
     fun valueHint(v: Int): L = when (v) {
-        REVIEWS -> L("التقييم من 5", "Rating out of 5"); STATS -> L("الرقم", "Number"); SUMMARY -> L("المبلغ", "Amount")
+        REVIEWS -> L("التقييم من 5", "Rating out of 5"); STATS, COUNTDOWN -> L("الرقم", "Number"); SUMMARY -> L("المبلغ", "Amount")
+        NOTIFS, CHAT, TIMELINE -> L("الوقت", "Time")
         else -> L("السعر", "Price")
     }
 
@@ -121,6 +148,25 @@ object CV {
             ICON_GRID -> b.copy(title = s("خدماتنا", "Our services"))
             ADD_BAR -> b.copy(title = "", price = "18", button = s("أضف إلى السلة", "Add to cart"), radius = 14f, pinBottom = true)
             CHECKS -> b.copy(title = s("إضافات", "Extras"))
+            FREE -> b.copy(title = "", subtitle = "", padding = 0f, radius = 0f)
+            NOTIFS -> b.copy(title = s("اليوم", "Today"))
+            CHAT -> b.copy(title = "", subtitle = s("اكتب رسالة…", "Type a message…"), radius = 18f)
+            FAQ -> b.copy(title = s("الأسئلة الشائعة", "FAQ"))
+            TIMELINE -> b.copy(title = s("حالة الطلب", "Order status"), active = 2)
+            CALENDAR -> {
+                val today = java.time.LocalDate.now()
+                b.copy(title = monthName(today.monthValue, lang) + " " + today.year, subtitle = "", active = today.dayOfMonth)
+            }
+            EMPTY -> b.copy(
+                title = s("سلتك فارغة", "Your cart is empty"), body = s("أضف منتجاتك المفضلة وستظهر هنا.", "Add your favorite items and they'll show up here."),
+                button = s("تسوّق الآن", "Start shopping"), icon = "shopping_cart", align = 1, radius = 14f,
+            )
+            ONBOARD -> b.copy(
+                title = s("اطلب قهوتك بلمسة", "Order coffee in a tap"), body = s("اختر مشروبك المفضل وسيكون جاهزاً عند وصولك.", "Pick your favorite drink and it's ready when you arrive."),
+                button = s("ابدأ الآن", "Get started"), subtitle = s("تخطي", "Skip"), align = 1, radius = 24f,
+            )
+            PRICING -> b.copy(title = s("اختر باقتك", "Choose your plan"), body = s("/ شهرياً", "/ month"), button = s("اشترك", "Subscribe"))
+            COUNTDOWN -> b.copy(title = s("ينتهي العرض خلال", "Offer ends in"), align = 1, radius = 14f)
             else -> b
         }
     }
@@ -151,6 +197,30 @@ object CV {
                 i("حجز", "Booking", "event"), i("دعم", "Support", "support_agent"), i("عروض", "Offers", "local_offer"),
             )
             CHECKS -> listOf(i("حليب الشوفان", "Oat milk", value = "3"), i("شوت إضافي", "Extra shot", value = "4").copy(on = true), i("كريمة", "Whipped cream", value = "2"))
+            NOTIFS -> listOf(
+                i("طلبك في الطريق", "Your order is on the way", "local_shipping", s("منذ 5 د", "5m ago")).copy(note = s("سيصلك خلال 15 دقيقة.", "Arriving in 15 minutes."), on = true),
+                i("خصم 20٪ اليوم", "20% off today", "local_offer", s("منذ ساعة", "1h ago")).copy(note = s("على كل المشروبات الباردة.", "On all iced drinks."), on = true),
+                i("تم تأكيد الدفع", "Payment confirmed", "check_circle", s("أمس", "Yesterday")).copy(note = s("شكراً لطلبك من قهوتي.", "Thanks for your order.")),
+            )
+            CHAT -> listOf(
+                i("مرحباً، هل الطلب جاهز؟", "Hi, is my order ready?", value = "10:02").copy(on = true),
+                i("أهلاً! سيكون جاهزاً خلال 5 دقائق ☕", "Hi! It'll be ready in 5 minutes ☕", value = "10:03"),
+                i("ممتاز، شكراً", "Great, thanks", value = "10:03").copy(on = true),
+            )
+            FAQ -> listOf(
+                i("كم تستغرق مدة التوصيل؟", "How long does delivery take?").copy(note = s("من 20 إلى 40 دقيقة حسب موقعك.", "20 to 40 minutes depending on where you are."), on = true),
+                i("هل يمكنني إلغاء الطلب؟", "Can I cancel my order?").copy(note = s("نعم، قبل أن يبدأ التحضير.", "Yes, before preparation starts.")),
+                i("ما طرق الدفع المتاحة؟", "Which payment methods do you take?").copy(note = s("البطاقات وApple Pay والدفع عند الاستلام.", "Cards, Apple Pay and cash on delivery.")),
+            )
+            TIMELINE -> listOf(
+                i("تم استلام الطلب", "Order received", value = "10:00"), i("قيد التحضير", "Being prepared", value = "10:05"),
+                i("في الطريق", "On the way", value = "10:20").copy(note = s("مع المندوب أحمد", "With driver Ahmed")), i("تم التوصيل", "Delivered"),
+            )
+            PRICING -> listOf(
+                i("أساسية", "Basic", value = "19").copy(note = s("10 طلبات\nتوصيل عادي", "10 orders\nStandard delivery")),
+                i("مميّزة", "Plus", value = "39").copy(note = s("طلبات غير محدودة\nتوصيل مجاني\nخصم 10٪", "Unlimited orders\nFree delivery\n10% off"), on = true),
+            )
+            COUNTDOWN -> listOf(i("يوم", "days", value = "02"), i("ساعة", "hours", value = "14"), i("دقيقة", "min", value = "35"), i("ثانية", "sec", value = "12"))
             else -> emptyList()
         }
     }
@@ -163,6 +233,23 @@ object CV {
 }
 
 fun Block.shows(option: String) = option !in hidden
+
+/** Canvas designs that belong to a free block are stored with this kind. */
+const val BLOCK_DESIGN = "block"
+
+fun monthName(m: Int, lang: Lang): String = (if (lang == Lang.AR) listOf(
+    "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر",
+) else listOf("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"))[(m - 1).coerceIn(0, 11)]
+
+fun weekDays(lang: Lang): List<String> =
+    if (lang == Lang.AR) listOf("أحد", "اثنين", "ثلاثاء", "أربعاء", "خميس", "جمعة", "سبت") else listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+
+/** Day cells for the current month, Sunday first; 0 = blank. */
+fun monthGrid(): List<Int> {
+    val first = java.time.LocalDate.now().withDayOfMonth(1)
+    val lead = first.dayOfWeek.value % 7 // Monday=1 … Sunday=7 → Sunday first
+    return List(lead) { 0 } + (1..first.lengthOfMonth()).toList()
+}
 
 // ============================================================================ rendering
 
@@ -433,6 +520,198 @@ internal fun ColumnScope.CustomExtra(b: Block, t: PTheme, items: List<BlockItem>
             ) {
                 PText(b.button, t, 15, t.onPrimary, bold = true, modifier = Modifier.weight(1f))
                 if (b.price.isNotBlank()) PText(price(b.price), t, 15, t.onPrimary, bold = true)
+            }
+        }
+        CV.FREE -> {
+            val design = com.eyn.designtrainer.ui.LocalData.current.designs.firstOrNull { it.id == b.designId }
+            androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
+                if (design != null) DesignCanvas(design, maxWidth.value / design.w)
+                else Box(
+                    Modifier.fillMaxWidth().height(120.dp).clip(RoundedCornerShape(16.dp))
+                        .border(2.dp, t.primary.copy(alpha = 0.3f), RoundedCornerShape(16.dp)).background(t.surface.copy(alpha = 0.5f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        FontIcon("draw", t.primary, 28f)
+                        PText(if (lang == Lang.AR) "قطعة حرّة: اضغطها ثم «ارسم القطعة»" else "Free block: tap it, then “Draw this block”", t, 12, t.muted, align = TextAlign.Center)
+                    }
+                }
+            }
+        }
+        CV.NOTIFS -> Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items.forEach { item ->
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(r)).background(if (item.on) t.primary.copy(alpha = 0.06f) else t.card).padding(12.dp),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    if (b.shows(CV.OPT_ICON)) {
+                        Box(Modifier.size(40.dp).clip(CircleShape).background(t.surface), contentAlignment = Alignment.Center) { FontIcon(item.icon.ifEmpty { "notifications" }, t.primary, 20f) }
+                        Spacer(Modifier.width(12.dp))
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            PText(item.label, t, 14, bold = true, maxLines = 1, modifier = Modifier.weight(1f))
+                            if (item.value.isNotBlank()) PText(item.value, t, 11, t.muted)
+                        }
+                        if (item.note.isNotBlank()) PText(item.note, t, 12, t.muted, maxLines = 2)
+                    }
+                    if (b.shows(CV.OPT_DOT) && item.on) { Spacer(Modifier.width(8.dp)); Box(Modifier.padding(top = 6.dp).size(8.dp).clip(CircleShape).background(t.accent)) }
+                }
+            }
+        }
+        CV.CHAT -> Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items.forEach { item ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = if (item.on) Arrangement.End else Arrangement.Start, verticalAlignment = Alignment.Bottom) {
+                    if (!item.on && b.shows(CV.OPT_IMAGE)) {
+                        Box(Modifier.size(30.dp).clip(CircleShape).background(t.surface), contentAlignment = Alignment.Center) { FontIcon("support_agent", t.primary, 16f) }
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    val shape = RoundedCornerShape(topStart = r, topEnd = r, bottomStart = if (item.on) r else 4.dp, bottomEnd = if (item.on) 4.dp else r)
+                    Column(
+                        Modifier.widthIn(max = 250.dp).clip(shape).background(if (item.on) t.primary else t.card).padding(horizontal = 12.dp, vertical = 8.dp),
+                    ) {
+                        PText(item.label, t, 14, if (item.on) t.onPrimary else t.ink)
+                        if (item.value.isNotBlank()) PText(item.value, t, 10, (if (item.on) t.onPrimary else t.muted).copy(alpha = 0.7f), modifier = Modifier.align(Alignment.End))
+                    }
+                }
+            }
+            if (b.shows(CV.OPT_INPUT)) Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f).height(46.dp).clip(CircleShape).background(Color.White).border(1.dp, t.ink.copy(alpha = 0.1f), CircleShape).padding(horizontal = 16.dp), contentAlignment = Alignment.CenterStart) {
+                    PText(b.subtitle, t, 13, t.muted, maxLines = 1)
+                }
+                Spacer(Modifier.width(8.dp))
+                Box(Modifier.size(46.dp).clip(CircleShape).background(t.primary), contentAlignment = Alignment.Center) {
+                    FontIcon("send", t.onPrimary, 20f, modifier = Modifier.graphicsLayer { if (lang == Lang.AR) scaleX = -1f })
+                }
+            }
+        }
+        CV.FAQ -> Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(r)).background(t.card)) {
+            items.forEachIndexed { i, item ->
+                Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        PText(item.label, t, 14, bold = true, modifier = Modifier.weight(1f))
+                        FontIcon(if (item.on) "expand_less" else "expand_more", t.muted, 22f)
+                    }
+                    if (item.on && item.note.isNotBlank()) { Spacer(Modifier.height(6.dp)); PText(item.note, t, 13, t.muted) }
+                }
+                if (i < items.lastIndex) Box(Modifier.padding(horizontal = 14.dp)) { divider() }
+            }
+        }
+        CV.TIMELINE -> Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(r)).background(t.card).padding(14.dp)) {
+            items.forEachIndexed { i, item ->
+                val done = i <= b.active
+                Row(Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min)) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(
+                            Modifier.size(24.dp).clip(CircleShape).background(if (done) t.primary else t.surface),
+                            contentAlignment = Alignment.Center,
+                        ) { if (done) FontIcon(if (i == b.active) "radio_button_checked" else "check", t.onPrimary, 14f) }
+                        if (i < items.lastIndex) Box(Modifier.width(2.dp).weight(1f).background(if (i < b.active) t.primary else t.ink.copy(alpha = 0.12f)))
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f).padding(bottom = if (i < items.lastIndex) 16.dp else 0.dp)) {
+                        Row {
+                            PText(item.label, t, 14, if (done) t.ink else t.muted, bold = i == b.active, modifier = Modifier.weight(1f))
+                            if (item.value.isNotBlank()) PText(item.value, t, 12, t.muted)
+                        }
+                        if (item.note.isNotBlank()) PText(item.note, t, 12, t.muted)
+                    }
+                }
+            }
+        }
+        CV.CALENDAR -> Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(r)).background(t.card).padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                FontIcon("chevron_left", t.muted, 22f)
+                PText(b.title, t, 15, bold = true, align = TextAlign.Center, modifier = Modifier.weight(1f))
+                FontIcon("chevron_right", t.muted, 22f)
+            }
+            Spacer(Modifier.height(8.dp))
+            Row { weekDays(lang).forEach { PText(it, t, 10, t.muted, align = TextAlign.Center, maxLines = 1, modifier = Modifier.weight(1f)) } }
+            monthGrid().chunked(7).forEach { week ->
+                Row(Modifier.padding(top = 4.dp)) {
+                    week.forEach { day ->
+                        Box(Modifier.weight(1f).height(34.dp), contentAlignment = Alignment.Center) {
+                            if (day > 0) {
+                                val on = day == b.active
+                                Box(Modifier.size(32.dp).clip(CircleShape).background(if (on) t.primary else Color.Transparent), contentAlignment = Alignment.Center) {
+                                    PText("$day", t, 13, if (on) t.onPrimary else t.ink, bold = on)
+                                }
+                            }
+                        }
+                    }
+                    repeat(7 - week.size) { Spacer(Modifier.weight(1f)) }
+                }
+            }
+        }
+        CV.EMPTY -> Column(Modifier.fillMaxWidth().padding(vertical = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            val s = if (ih > 0) ih.dp else 96.dp
+            Box(Modifier.size(s).clip(CircleShape).background(t.surface), contentAlignment = Alignment.Center) { FontIcon(b.icon.ifBlank { "inbox" }, t.primary, s.value * 0.45f) }
+            Spacer(Modifier.height(16.dp))
+            PText(b.title, t, 18, bold = true, align = TextAlign.Center)
+            if (b.body.isNotBlank()) { Spacer(Modifier.height(6.dp)); PText(b.body, t, 13, t.muted, align = TextAlign.Center) }
+            if (b.button.isNotBlank()) {
+                Spacer(Modifier.height(18.dp))
+                Box(Modifier.clip(RoundedCornerShape(r)).background(t.primary).padding(horizontal = 28.dp, vertical = 12.dp)) { PText(b.button, t, 14, t.onPrimary, bold = true) }
+            }
+        }
+        CV.ONBOARD -> Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            if (b.subtitle.isNotBlank()) PText(b.subtitle, t, 13, t.muted, modifier = Modifier.align(Alignment.End))
+            Spacer(Modifier.height(10.dp))
+            Placeholder(t, Modifier.fillMaxWidth().height(if (ih > 0) ih.dp else 260.dp), r, b.image)
+            Spacer(Modifier.height(22.dp))
+            PText(b.title, t, 22, bold = true, align = TextAlign.Center)
+            if (b.body.isNotBlank()) { Spacer(Modifier.height(8.dp)); PText(b.body, t, 14, t.muted, align = TextAlign.Center) }
+            if (b.shows(CV.OPT_DOTS)) Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                repeat(3) { i -> Box(Modifier.height(8.dp).width(if (i == 0) 22.dp else 8.dp).clip(CircleShape).background(if (i == 0) t.primary else t.ink.copy(alpha = 0.15f))) }
+            }
+            if (b.button.isNotBlank()) {
+                Spacer(Modifier.height(20.dp))
+                Box(Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(r * 0.6f)).background(t.primary), contentAlignment = Alignment.Center) {
+                    PText(b.button, t, 15, t.onPrimary, bold = true)
+                }
+            }
+        }
+        CV.PRICING -> Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            items.forEach { item ->
+                Column(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(r)).background(if (item.on) t.primary else t.card)
+                        .border(1.dp, if (item.on) t.primary else t.ink.copy(alpha = 0.08f), RoundedCornerShape(r)).padding(16.dp),
+                ) {
+                    val on = if (item.on) t.onPrimary else t.ink
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        PText(item.label, t, 16, on, bold = true, modifier = Modifier.weight(1f))
+                        if (item.on) Box(Modifier.clip(CircleShape).background(t.accent).padding(horizontal = 10.dp, vertical = 3.dp)) {
+                            PText(if (lang == Lang.AR) "الأكثر طلباً" else "Popular", t, 11, Color.White, bold = true)
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(vertical = 6.dp)) {
+                        PText(price(item.value), t, 24, on, bold = true)
+                        if (b.body.isNotBlank()) PText(" " + b.body, t, 12, on.copy(alpha = 0.7f))
+                    }
+                    item.note.lines().filter { it.isNotBlank() }.forEach { f ->
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
+                            FontIcon("check", if (item.on) t.onPrimary else t.primary, 16f); Spacer(Modifier.width(6.dp)); PText(f, t, 13, on.copy(alpha = 0.85f))
+                        }
+                    }
+                    if (b.button.isNotBlank()) {
+                        Spacer(Modifier.height(12.dp))
+                        Box(
+                            Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(r * 0.7f)).background(if (item.on) Color.White else t.primary),
+                            contentAlignment = Alignment.Center,
+                        ) { PText(b.button, t, 14, if (item.on) t.primary else t.onPrimary, bold = true) }
+                    }
+                }
+            }
+        }
+        CV.COUNTDOWN -> Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(r)).background(t.primary).padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            if (b.title.isNotBlank()) { PText(b.title, t, 14, t.onPrimary.copy(alpha = 0.85f), align = TextAlign.Center); Spacer(Modifier.height(10.dp)) }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items.forEach { item ->
+                    Column(Modifier.width(60.dp).clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.15f)).padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        PText(item.value, t, 22, t.onPrimary, bold = true)
+                        PText(item.label, t, 11, t.onPrimary.copy(alpha = 0.8f), maxLines = 1)
+                    }
+                }
             }
         }
         CV.CHECKS -> Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(r)).background(t.card)) {

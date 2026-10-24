@@ -237,7 +237,7 @@ fun starterPage(p: AppProject, lang: Lang, name: String) = Page(
 // ============================================================================ rendering
 
 /** Custom blocks that place their title themselves (or have none above the content). */
-private val CUSTOM_OWN_TITLE = setOf(CV.SECTION, CV.DIVIDER, CV.BANNER, CV.PRODUCT, CV.PROFILE, CV.ALERT, CV.ADD_BAR)
+private val CUSTOM_OWN_TITLE = setOf(CV.SECTION, CV.DIVIDER, CV.BANNER, CV.PRODUCT, CV.PROFILE, CV.ALERT, CV.ADD_BAR, CV.FREE, CV.CALENDAR, CV.EMPTY, CV.ONBOARD, CV.COUNTDOWN)
 
 @Composable
 internal fun PText(

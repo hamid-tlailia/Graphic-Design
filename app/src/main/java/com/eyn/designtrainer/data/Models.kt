@@ -127,6 +127,7 @@ data class Block(
     val price: String = "",         // product price
     val icon: String = "",          // block-level icon (alerts)
     val hidden: Set<String> = emptySet(), // optional parts the user switched off (see BlockOption)
+    val designId: String = "",      // free block: the canvas design drawn inside it
 )
 
 @Serializable

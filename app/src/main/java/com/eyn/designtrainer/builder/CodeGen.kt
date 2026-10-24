@@ -1,10 +1,14 @@
 package com.eyn.designtrainer.builder
 
+import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.luminance
 import com.eyn.designtrainer.data.AppProject
 import com.eyn.designtrainer.data.Block
 import com.eyn.designtrainer.data.BlockItem
 import com.eyn.designtrainer.data.BlockKind
+import com.eyn.designtrainer.data.Design
+import com.eyn.designtrainer.data.El
+import com.eyn.designtrainer.data.ElType
 import com.eyn.designtrainer.data.Page
 import com.eyn.designtrainer.data.c
 import com.eyn.designtrainer.i18n.Lang
@@ -28,6 +32,9 @@ object CodeGen {
         var items: String? = null; var justify: String? = null; var self: String? = null; var clip = false
         var color: String? = null; var fs: Float? = null; var bold = false; var ta: String? = null; var lines = 0; var ls = 0f; var font: String? = null
         var scrollX = false; var photo: String? = null; var overlay = false; var mirror = false
+        // Free blocks: absolutely placed children inside a relative box.
+        var rel = false; var abs = false; var x = 0f; var y = 0f; var rot = 0f; var alpha = 1f
+        var clipPath: String? = null; var borderStyle: String? = null; var shadow = 0f
     }
 
     /** k: 'b' box, 't' text, 'i' icon (text = icon name), 'm' image (text = data URI). */
@@ -40,7 +47,7 @@ object CodeGen {
 
     // ======================================================================== theme
 
-    private class T(p: AppProject, val lang: Lang, val image: (String) -> String?) {
+    private class T(p: AppProject, val lang: Lang, val image: (String) -> String?, val designs: (String) -> Design? = { null }) {
         val pal = if (p.applyIdentity) p.colors() else Palettes[1]
         val primary = hex(pal.primary); val surface = hex(pal.surface); val accent = hex(pal.accent)
         val bg = hex(pal.bg); val ink = hex(pal.ink); val muted = rgba(pal.ink, 0.55f); val card = "#FFFFFF"
@@ -308,7 +315,82 @@ object CodeGen {
             box({ wPct = b.widthPct.coerceIn(0.2f, 1f) * 100f; minH = b.minHeight.takeIf { it > 0 } }, content))
     }
 
-    private val ownTitle = setOf(CV.SECTION, CV.DIVIDER, CV.BANNER, CV.PRODUCT, CV.PROFILE, CV.ALERT, CV.ADD_BAR)
+    private val ownTitle = setOf(CV.SECTION, CV.DIVIDER, CV.BANNER, CV.PRODUCT, CV.PROFILE, CV.ALERT, CV.ADD_BAR, CV.FREE, CV.CALENDAR, CV.EMPTY, CV.ONBOARD, CV.COUNTDOWN)
+
+    private fun argb(v: Long): String {
+        val a = ((v shr 24) and 0xFF) / 255f
+        return if (a >= 0.999f) hex(v) else rgba(v, a)
+    }
+
+    /** A Compose shape outline as a CSS polygon (outer contour, sampled). */
+    private fun polygon(index: Int, w: Float, h: Float): String {
+        val path = Shapes.path(index, w, h).asAndroidPath()
+        val pm = android.graphics.PathMeasure(path, true)
+        val pts = mutableListOf<String>()
+        val pos = FloatArray(2)
+        val n = 72
+        for (i in 0 until n) {
+            pm.getPosTan(pm.length * i / n, pos, null)
+            pts += "${"%.1f".format(pos[0] / w * 100)}% ${"%.1f".format(pos[1] / h * 100)}%"
+        }
+        return "polygon(${pts.joinToString(",")})"
+    }
+
+    /** One canvas element of a free block, absolutely placed. */
+    private fun T.freeEl(e: El): N? {
+        if (!e.visible) return null
+        val textAlign = when (e.align) { 1 -> "center"; 2 -> "right"; else -> "left" }
+        fun label(size: Float = e.fontSize) = N('t', S().apply {
+            fs = size; color = argb(e.fg); bold = e.bold; ta = textAlign; wPct = 100f; ls = e.letterSpacing
+            font = FontCatalog.getOrNull(e.font)?.let { googleName(it.name) }
+        }, text = e.text)
+        val kids: List<N?> = when (e.type) {
+            ElType.ICON -> listOf(icon(e.icon, argb(e.fg), minOf(e.w, e.h)))
+            ElType.IMAGE, ElType.AVATAR -> listOf(
+                e.image.takeIf { it.isNotEmpty() }?.let { image(it) }?.let { N('m', S(), text = it) }
+                    ?: icon(if (e.type == ElType.AVATAR) "person" else "image", rgba(e.fg, 0.5f), minOf(e.w, e.h) * 0.4f),
+            )
+            ElType.PAYMENT -> listOf(pay(e.icon, e.h))
+            ElType.RATING -> listOf(boxL({ row = true; justify = "between"; wPct = 100f }, (0 until 5).map { i ->
+                icon(if (i < (e.value * 5).roundToInt()) "star" else "star_border", argb(e.fg), minOf(e.h, e.w / 5f))
+            }))
+            ElType.PROGRESS, ElType.SLIDER -> listOf(box({ h = e.h; wPct = e.value.coerceIn(0f, 1f) * 100f; r = e.radius; bg = argb(e.fg) }))
+            ElType.TOGGLE -> listOf(box({ w = e.h * 0.76f; h = e.h * 0.76f; circle = true; bg = "#FFFFFF" }))
+            ElType.CHECKBOX -> listOf(
+                box({ w = e.h * 0.8f; h = e.h * 0.8f; r = e.h * 0.2f; bg = if (e.value >= 0.5f) argb(e.bg) else null; bw = 1.5f; bc = argb(e.bg); items = "center"; justify = "center" },
+                    if (e.value >= 0.5f) icon("check", "#FFFFFF", e.h * 0.65f) else null),
+                box({ flex = 1f }, label()),
+            )
+            ElType.SEARCH -> listOf(icon("search", argb(e.fg), e.h * 0.45f), box({ flex = 1f }, label()))
+            else -> if (e.text.isNotEmpty()) listOf(label()) else emptyList()
+        }
+        val hasBox = e.type !in setOf(ElType.TOGGLE, ElType.RATING, ElType.CHECKBOX, ElType.PAYMENT)
+        return boxL({
+            abs = true; x = e.x; y = e.y; w = e.w; h = e.h; rot = e.rotation; alpha = e.opacity
+            row = e.type in setOf(ElType.CHECKBOX, ElType.SEARCH, ElType.TOGGLE, ElType.PROGRESS, ElType.SLIDER, ElType.RATING)
+            gap = if (e.type == ElType.CHECKBOX || e.type == ElType.SEARCH) 8f else 0f
+            items = when (e.vAlign) { 0 -> "start"; 2 -> "end"; else -> "center" }.takeIf { row } ?: when (e.align) { 1 -> "center"; 2 -> "end"; else -> "start" }
+            justify = if (row) (if (e.type == ElType.TOGGLE) (if (e.value >= 0.5f) "end" else "start") else null) else when (e.vAlign) { 0 -> "start"; 2 -> "end"; else -> "center" }
+            ph = e.padH + if (e.type == ElType.INPUT || e.type == ElType.SEARCH) 14f else 0f; pv = e.padV
+            if (e.type == ElType.TOGGLE) { circle = true; bg = argb(if (e.value >= 0.5f) e.bg else e.borderColor); ph = e.h * 0.12f }
+            if (hasBox) {
+                if (e.type == ElType.CIRCLE || e.type == ElType.AVATAR) circle = true else r = e.radius
+                if (e.type == ElType.PROGRESS || e.type == ElType.SLIDER) { r = e.radius; bg = argb(e.bg) } else bg = argb(e.bg).takeIf { (e.bg shr 24) and 0xFF != 0L }
+                if (e.type == ElType.FRAME) { bw = maxOf(e.borderW, 1f); bc = argb(e.borderColor); borderStyle = when (e.shape) { 1, 2, 5 -> "double"; 3 -> "dashed"; 4 -> "dotted"; else -> null }; if (e.shape == 1 || e.shape == 2 || e.shape == 5) bw = maxOf(e.borderW * 2, 3f) }
+                else if (e.borderW > 0f) { bw = e.borderW; bc = argb(e.borderColor) }
+                if (e.type == ElType.SHAPE) { r = 0f; clipPath = polygon(e.shape, e.w, e.h) }
+                clip = true; shadow = e.shadow
+            }
+        }, kids)
+    }
+
+    /** A free block: its canvas drawing at design size, children placed absolutely. */
+    private fun T.free(b: Block): N {
+        val d = designs(b.designId) ?: return box({ wPct = 100f; h = 120f; r = 16f; bw = 2f; bc = rgba(pal.primary, 0.3f); items = "center"; justify = "center" },
+            icon("draw", primary, 28f))
+        return boxL({ rel = true; w = d.w; h = d.h; clip = true; bg = argb(d.bg).takeIf { (d.bg shr 24) and 0xFF != 0L }
+            d.bgImage.takeIf { it.isNotEmpty() }?.let { photo = image(it) } }, d.els.map { freeEl(it) })
+    }
 
     /** Payment brand mark as plain boxes and text. */
     private fun T.pay(kind: String, height: Float): N {
@@ -438,6 +520,85 @@ object CodeGen {
                 if (b.shows(CV.OPT_STEPPER)) stepper(1, 36f) else null,
                 box({ flex = 1f; row = true; items = "center"; h = if (ih > 0) ih else 52f; r = rad; bg = primary; ph = 16f },
                     box({ flex = 1f }, text(b.button, 15f, onPrimary, bold = true)), if (b.price.isNotBlank()) text(pr(b.price), 15f, onPrimary, bold = true) else null))
+            CV.FREE -> free(b)
+            CV.NOTIFS -> boxL({ gap = 8f; wPct = 100f }, its.map { item ->
+                box({ row = true; wPct = 100f; r = rad; bg = if (item.on) rgba(pal.primary, 0.06f) else card; ph = 12f; pv = 12f; gap = 12f },
+                    if (b.shows(CV.OPT_ICON)) circleIcon(40f, surface, item.icon.ifEmpty { "notifications" }, primary, 20f) else null,
+                    box({ flex = 1f },
+                        box({ row = true; items = "center"; wPct = 100f }, box({ flex = 1f }, text(item.label, 14f, bold = true, lines = 1)),
+                            if (item.value.isNotBlank()) text(item.value, 11f, muted) else null),
+                        if (item.note.isNotBlank()) text(item.note, 12f, muted, lines = 2) else null),
+                    if (b.shows(CV.OPT_DOT) && item.on) box({ w = 8f; h = 8f; circle = true; bg = accent; pt = 6f }) else null)
+            })
+            CV.CHAT -> boxL({ gap = 8f; wPct = 100f }, its.map { item ->
+                box({ row = true; wPct = 100f; justify = if (item.on) "end" else "start"; items = "end"; gap = 6f },
+                    if (!item.on && b.shows(CV.OPT_IMAGE)) circleIcon(30f, surface, "support_agent", primary, 16f) else null,
+                    box({ r = rad; bg = if (item.on) primary else card; ph = 12f; pv = 8f },
+                        text(item.label, 14f, if (item.on) onPrimary else ink),
+                        if (item.value.isNotBlank()) text(item.value, 10f, if (item.on) onPrimary.withAlpha(0.7f) else muted) else null))
+            } + if (b.shows(CV.OPT_INPUT)) listOf(box({ row = true; items = "center"; wPct = 100f; gap = 8f; pt = 4f },
+                box({ flex = 1f; h = 46f; circle = true; bg = "#FFFFFF"; bw = 1f; bc = ink(0.1f); ph = 16f; justify = "center" }, text(b.subtitle, 13f, muted, lines = 1)),
+                box({ w = 46f; h = 46f; circle = true; bg = primary; items = "center"; justify = "center" }, icon("send", onPrimary, 20f, mirror = true)))) else emptyList())
+            CV.FAQ -> boxL({ wPct = 100f; r = rad; bg = card; clip = true }, its.flatMapIndexed { i, item ->
+                listOfNotNull(
+                    box({ wPct = 100f; ph = 14f; pv = 14f; gap = 6f },
+                        box({ row = true; items = "center"; wPct = 100f }, box({ flex = 1f }, text(item.label, 14f, bold = true)), icon(if (item.on) "expand_less" else "expand_more", muted, 22f)),
+                        if (item.on && item.note.isNotBlank()) text(item.note, 13f, muted) else null),
+                    if (i < its.lastIndex) line() else null,
+                )
+            })
+            CV.TIMELINE -> boxL({ wPct = 100f; r = rad; bg = card; ph = 14f; pv = 14f }, its.mapIndexed { i, item ->
+                val done = i <= b.active
+                box({ row = true; wPct = 100f; gap = 12f },
+                    box({ items = "center"; minH = if (i < its.lastIndex) 56f else null },
+                        box({ w = 24f; h = 24f; circle = true; bg = if (done) primary else surface; items = "center"; justify = "center" },
+                            if (done) icon(if (i == b.active) "radio_button_checked" else "check", onPrimary, 14f) else null),
+                        if (i < its.lastIndex) box({ w = 2f; flex = 1f; bg = if (i < b.active) primary else ink(0.12f) }) else null),
+                    box({ flex = 1f },
+                        box({ row = true; wPct = 100f }, box({ flex = 1f }, text(item.label, 14f, if (done) ink else muted, bold = i == b.active)), if (item.value.isNotBlank()) text(item.value, 12f, muted) else null),
+                        if (item.note.isNotBlank()) text(item.note, 12f, muted) else null))
+            })
+            CV.CALENDAR -> box({ wPct = 100f; r = rad; bg = card; ph = 12f; pv = 12f; gap = 4f },
+                box({ row = true; items = "center"; wPct = 100f }, icon("chevron_left", muted, 22f), box({ flex = 1f }, text(b.title, 15f, bold = true, center = true)), icon("chevron_right", muted, 22f)),
+                boxL({ row = true; wPct = 100f; pt = 6f }, weekDays(lang).map { box({ flex = 1f }, text(it, 10f, muted, center = true, lines = 1)) }),
+                boxL({ wPct = 100f; gap = 4f }, monthGrid().chunked(7).map { week ->
+                    boxL({ row = true; wPct = 100f }, week.map { day ->
+                        box({ flex = 1f; h = 34f; items = "center"; justify = "center" },
+                            if (day > 0) box({ w = 32f; h = 32f; circle = true; bg = if (day == b.active) primary else null; items = "center"; justify = "center" },
+                                text("$day", 13f, if (day == b.active) onPrimary else ink, bold = day == b.active)) else null)
+                    } + List(7 - week.size) { flexSpacer() })
+                }))
+            CV.EMPTY -> {
+                val sz = if (ih > 0) ih else 96f
+                box({ wPct = 100f; pv = 20f; items = "center"; gap = 6f },
+                    circleIcon(sz, surface, b.icon.ifBlank { "inbox" }, primary, sz * 0.45f), spacer(10f),
+                    text(b.title, 18f, bold = true, center = true), if (b.body.isNotBlank()) text(b.body, 13f, muted, center = true) else null,
+                    if (b.button.isNotBlank()) box({ r = rad; bg = primary; ph = 28f; pv = 12f; pt = 12f }, text(b.button, 14f, onPrimary, bold = true)) else null)
+            }
+            CV.ONBOARD -> box({ wPct = 100f; items = "center" },
+                if (b.subtitle.isNotBlank()) box({ wPct = 100f; items = "end" }, text(b.subtitle, 13f, muted)) else null, spacer(10f),
+                placeholder({ wPct = 100f; h = if (ih > 0) ih else 260f; r = rad }, b.image), spacer(22f),
+                text(b.title, 22f, bold = true, center = true), if (b.body.isNotBlank()) text(b.body, 14f, muted, center = true) else null,
+                if (b.shows(CV.OPT_DOTS)) boxL({ row = true; gap = 6f; pt = 18f }, (0 until 3).map { i -> box({ h = 8f; w = if (i == 0) 22f else 8f; circle = true; bg = if (i == 0) primary else ink(0.15f) }) }) else null,
+                if (b.button.isNotBlank()) spacer(20f) else null,
+                if (b.button.isNotBlank()) box({ row = true; wPct = 100f }, button(b.button, 52f, rad * 0.6f)) else null)
+            CV.PRICING -> boxL({ gap = 10f; wPct = 100f }, its.map { item ->
+                val on = if (item.on) onPrimary else ink
+                boxL({ wPct = 100f; r = rad; bg = if (item.on) primary else card; bw = 1f; bc = if (item.on) primary else ink(0.08f); ph = 16f; pv = 16f; gap = 4f }, listOf(
+                    box({ row = true; items = "center"; wPct = 100f }, box({ flex = 1f }, text(item.label, 16f, on, bold = true)),
+                        if (item.on) box({ circle = true; bg = accent; ph = 10f; pv = 3f }, text(if (rtl) "الأكثر طلباً" else "Popular", 11f, "#FFFFFF", bold = true)) else null),
+                    box({ row = true; items = "end"; gap = 4f; pv = 6f }, text(pr(item.value), 24f, on, bold = true), if (b.body.isNotBlank()) text(b.body, 12f, on.withAlpha(0.7f)) else null),
+                ) + item.note.lines().filter { it.isNotBlank() }.map { f ->
+                    box({ row = true; items = "center"; gap = 6f; pv = 2f }, icon("check", if (item.on) onPrimary else primary, 16f), text(f, 13f, on.withAlpha(0.85f)))
+                } + if (b.button.isNotBlank()) listOf(spacer(12f), box({ row = true; wPct = 100f },
+                    box({ flex = 1f; h = 44f; r = rad * 0.7f; bg = if (item.on) "#FFFFFF" else primary; items = "center"; justify = "center" },
+                        text(b.button, 14f, if (item.on) primary else onPrimary, bold = true)))) else emptyList())
+            })
+            CV.COUNTDOWN -> box({ wPct = 100f; r = rad; bg = primary; ph = 16f; pv = 16f; items = "center"; gap = 10f },
+                if (b.title.isNotBlank()) text(b.title, 14f, onPrimary.withAlpha(0.85f), center = true) else null,
+                boxL({ row = true; gap = 8f }, its.map { item ->
+                    box({ w = 60f; r = 12f; bg = "rgba(255,255,255,0.15)"; pv = 8f; items = "center" }, text(item.value, 22f, onPrimary, bold = true), text(item.label, 11f, onPrimary.withAlpha(0.8f), lines = 1))
+                }))
             CV.CHECKS -> boxL({ wPct = 100f; r = rad; bg = card; clip = true }, its.flatMapIndexed { i, item ->
                 listOfNotNull(
                     box({ row = true; items = "center"; wPct = 100f; minH = 52f; ph = 14f; gap = 12f },
@@ -487,8 +648,16 @@ object CodeGen {
         if (s.bw > 0) append("border:${px(s.bw)} solid ${s.bc};")
         if (s.clip) append("overflow:hidden;")
         if (s.scrollX) append("overflow-x:auto;scrollbar-width:none;")
+        if (s.rel) append("position:relative;")
+        if (s.abs) append("position:absolute;left:${px(s.x)};top:${px(s.y)};")
+        if (s.rot != 0f) append("transform:rotate(${s.rot}deg);")
+        if (s.alpha < 1f) append("opacity:${"%.2f".format(s.alpha)};")
+        s.clipPath?.let { append("clip-path:$it;") }
+        s.borderStyle?.let { append("border-style:$it;") }
+        if (s.shadow > 0f) append("box-shadow:0 ${px(s.shadow / 2)} ${px(s.shadow)} rgba(0,0,0,.18);")
         if (n.k == 't') {
             append("font-size:${px(s.fs ?: 14f)};line-height:1.45;color:${s.color};font-weight:${if (s.bold) 700 else 400};text-align:${s.ta ?: "start"};")
+            if (s.ta == "left" || s.ta == "right") append("unicode-bidi:plaintext;")
             if (s.ls != 0f) append("letter-spacing:${px(s.ls)};")
             s.font?.let { append("font-family:'$it';") }
             if (s.lines == 1) append("white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;")
@@ -538,8 +707,8 @@ object CodeGen {
         )
     }
 
-    fun html(p: AppProject, lang: Lang, image: (String) -> String? = { null }): String {
-        val t = T(p, lang, image)
+    fun html(p: AppProject, lang: Lang, image: (String) -> String? = { null }, designs: (String) -> Design? = { null }): String {
+        val t = T(p, lang, image, designs)
         val fonts = listOf(t.font, t.logoFont).distinct().joinToString("&") { fontLink(it) }
         // All phones share one height (the tallest page), like the presentation board.
         val screenH = boardScreenHeight(p) + 2
@@ -621,11 +790,15 @@ $screens
         s.bg?.let { out += "backgroundColor: '$it'" }
         if (s.bw > 0) { out += "borderWidth: ${s.bw.fmt()}"; out += "borderColor: '${s.bc}'" }
         if (s.clip) out += "overflow: 'hidden'"
+        if (s.abs) { out += "position: 'absolute'"; out += "left: ${s.x.fmt()}"; out += "top: ${s.y.fmt()}" }
+        if (s.alpha < 1f) out += "opacity: ${"%.2f".format(s.alpha)}"
+        s.borderStyle?.let { if (it == "dashed" || it == "dotted") out += "borderStyle: '$it'" }
+        if (s.rot != 0f) out += "transform: [{ rotate: '${s.rot.fmt()}deg' }]"
         if (n.k == 't') {
             val fs = s.fs ?: 14f
             out += "fontSize: ${fs.fmt()}"; out += "lineHeight: ${(fs * 1.45f).fmt()}"; s.color?.let { out += "color: '$it'" }
             if (s.bold) out += "fontWeight: '700'"
-            out += "textAlign: '${if (s.ta == "center") "center" else if (t.rtl) "right" else "left"}'"
+            out += "textAlign: '${when (s.ta) { "center" -> "center"; "left", "right" -> s.ta; else -> if (t.rtl) "right" else "left" }}'"
             if (s.ls != 0f) out += "letterSpacing: ${s.ls.fmt()}"
             out += "fontFamily: '${(s.font ?: t.font).replace(" ", "")}'"
         }
@@ -652,8 +825,8 @@ $screens
         }
     }
 
-    fun reactNative(p: AppProject, lang: Lang, image: (String) -> String? = { null }): String {
-        val t = T(p, lang, image)
+    fun reactNative(p: AppProject, lang: Lang, image: (String) -> String? = { null }, designs: (String) -> Design? = { null }): String {
+        val t = T(p, lang, image, designs)
         val screens = p.pages.mapIndexed { i, page ->
             val (top, bottom) = t.page(page, p)
             """// ${page.name}
