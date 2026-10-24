@@ -381,7 +381,7 @@ object Content {
         ),
     )
 
-    val questions: List<Question> by lazy { baseQuestions + Path.extraQuestions }
+    val questions: List<Question> by lazy { baseQuestions + Path.extraQuestions + LessonQuestions.all }
 
     fun byCat(cat: Cat) = questions.filter { it.cat == cat }
 

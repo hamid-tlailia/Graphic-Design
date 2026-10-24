@@ -186,7 +186,7 @@ private fun AskView(
         ) {
             Text(q.q.t(), style = Type.h2, color = c.text)
             Spacer(Modifier.height(4.dp))
-            Text(q.hint.t(), style = Type.small, color = c.muted)
+            if (q.hint.t().isNotBlank()) Text(q.hint.t(), style = Type.small, color = c.muted)
             Spacer(Modifier.height(20.dp))
             q.options.forEachIndexed { i, opt ->
                 val on = i == selected
