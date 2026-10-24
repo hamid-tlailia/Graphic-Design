@@ -35,6 +35,7 @@ object CodeGen {
         // Free blocks: absolutely placed children inside a relative box.
         var rel = false; var abs = false; var x = 0f; var y = 0f; var rot = 0f; var alpha = 1f
         var clipPath: String? = null; var borderStyle: String? = null; var shadow = 0f
+        var inner: String? = null // CSS outline for a decorative inner line
     }
 
     /** k: 'b' box, 't' text, 'i' icon (text = icon name), 'm' image (text = data URI). */
@@ -379,6 +380,7 @@ object CodeGen {
                 if (e.type == ElType.FRAME) { bw = maxOf(e.borderW, 1f); bc = argb(e.borderColor); borderStyle = when (e.shape) { 1, 2, 5 -> "double"; 3 -> "dashed"; 4 -> "dotted"; else -> null }; if (e.shape == 1 || e.shape == 2 || e.shape == 5) bw = maxOf(e.borderW * 2, 3f) }
                 else if (e.borderW > 0f) { bw = e.borderW; bc = argb(e.borderColor) }
                 if (e.type == ElType.SHAPE) { r = 0f; clipPath = polygon(e.shape, e.w, e.h) }
+                if (e.inner > 0 && e.type != ElType.SHAPE) inner = "2px ${when (e.inner) { 1 -> "dotted"; 2 -> "dashed"; else -> "solid" }} ${argb(e.innerColor)}"
                 clip = true; shadow = e.shadow
             }
         }, kids)
@@ -655,6 +657,7 @@ object CodeGen {
         s.clipPath?.let { append("clip-path:$it;") }
         s.borderStyle?.let { append("border-style:$it;") }
         if (s.shadow > 0f) append("box-shadow:0 ${px(s.shadow / 2)} ${px(s.shadow)} rgba(0,0,0,.18);")
+        s.inner?.let { append("outline:$it;outline-offset:-8px;") }
         if (n.k == 't') {
             append("font-size:${px(s.fs ?: 14f)};line-height:1.45;color:${s.color};font-weight:${if (s.bold) 700 else 400};text-align:${s.ta ?: "start"};")
             if (s.ta == "left" || s.ta == "right") append("unicode-bidi:plaintext;")

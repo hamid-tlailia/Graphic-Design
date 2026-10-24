@@ -1,5 +1,7 @@
 package com.eyn.designtrainer.builder
 
+import androidx.compose.runtime.CompositionLocalProvider
+
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -42,6 +44,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AddPhotoAlternate
+import androidx.compose.material.icons.rounded.BookmarkAdd
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
@@ -97,6 +100,7 @@ import androidx.compose.ui.zIndex
 import com.eyn.designtrainer.data.AppProject
 import com.eyn.designtrainer.data.Block
 import com.eyn.designtrainer.data.Design
+import com.eyn.designtrainer.data.SavedBlock
 import com.eyn.designtrainer.data.BlockItem
 import com.eyn.designtrainer.data.BlockKind
 import com.eyn.designtrainer.data.Page
@@ -140,7 +144,7 @@ private fun rememberProject(id: String): AppProject? {
 private fun Label(text: String) = Text(text, style = Type.label, color = Eyn.c.text, modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
 
 @Composable
-private fun OptionChip(label: String, on: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+internal fun OptionChip(label: String, on: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val c = Eyn.c
     val bg by animateColorAsState(if (on) c.primary else c.surface, label = "oc")
     Box(
@@ -341,48 +345,88 @@ fun BlockLibraryScreen(id: String, pageId: String) {
     val nav = LocalNav.current
     val lang = LocalLang.current
     val p = rememberProject(id) ?: return
-    var kindIdx by rememberSaveable { mutableStateOf(0) }
+    val data = LocalData.current
+    val saved = data.savedBlocks
+    // Tab 0 holds the user's saved blocks; open it first once there are some.
+    var tab by rememberSaveable { mutableStateOf(if (saved.isNotEmpty()) 0 else 1) }
     val kinds = BlockKind.entries
-    val picked = remember { mutableStateListOf<Pair<BlockKind, Int>>() }
+    // Keys: "k:KIND:variant" for built-in blocks, "s:id" for saved ones.
+    val picked = remember { mutableStateListOf<String>() }
+    var savedFilter by rememberSaveable { mutableStateOf<String?>(null) }
+    var deleting by remember { mutableStateOf<SavedBlock?>(null) }
+    val previewData = remember(data) { data.withSavedDrawings() }
+
+    @Composable
+    fun Tile(key: String, label: String, block: Block, onLong: (() -> Unit)? = null, modifier: Modifier) {
+        val on = key in picked
+        Column(modifier) {
+            Box(
+                Modifier.fillMaxWidth().height(118.dp).clip(RoundedCornerShape(18.dp))
+                    .combinedClickable(onClick = { if (on) picked.remove(key) else picked.add(key) }, onLongClick = onLong)
+                    .background(c.surface)
+                    .border(if (on) 2.dp else 1.dp, if (on) c.primary else c.outline, RoundedCornerShape(18.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                BoxWithConstraints(Modifier.fillMaxSize().padding(8.dp), contentAlignment = Alignment.Center) {
+                    val scale = (maxWidth.value / 360f)
+                    Box(Modifier.clip(RoundedCornerShape(8.dp)).background(p.theme().bg)) {
+                        CompositionLocalProvider(LocalData provides previewData) { Scaled(scale) { BlockView(block, p) } }
+                    }
+                }
+                androidx.compose.animation.AnimatedVisibility(on, Modifier.align(Alignment.BottomStart).padding(8.dp), enter = scaleIn() + fadeIn(), exit = scaleOut() + fadeOut()) {
+                    Box(Modifier.size(24.dp).clip(CircleShape).background(c.primary), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.Check, null, tint = c.onPrimary, modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
+            Text(label, style = Type.small, color = c.text, maxLines = 1, modifier = Modifier.padding(top = 6.dp, start = 4.dp))
+        }
+    }
+
+    @Composable
+    fun <T> Grid(items: List<T>, tile: @Composable (T, Modifier) -> Unit) {
+        items.chunked(2).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(bottom = 12.dp)) {
+                row.forEach { tile(it, Modifier.weight(1f)) }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+    }
+
+    @Composable
+    fun SavedGrid(list: List<SavedBlock>) = Grid(list) { sb, m -> Tile("s:${sb.id}", sb.name, sb.block, onLong = { deleting = sb }, modifier = m) }
 
     Column(Modifier.fillMaxSize()) {
         TopBar(tr("مكتبة القطع", "Block library"), onBack = null) {
             SquareIconButton(Icons.Rounded.Close, { nav.popBackStack() })
         }
-        ChipRow(kinds.map { it.label().t() }, kindIdx, { kindIdx = it }, Modifier.padding(bottom = 8.dp))
-        val kind = kinds[kindIdx]
+        ChipRow(listOf(tr("⭐ المحفوظة", "⭐ Saved")) + kinds.map { it.label().t() }, tab, { tab = it }, Modifier.padding(bottom = 8.dp))
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
-            val names = Variants.getValue(kind)
-            val order = if (kind == BlockKind.CUSTOM) CV.libraryOrder else names.indices.toList()
-            order.map { IndexedValue(it, names[it]) }.chunked(2).forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(bottom = 12.dp)) {
-                    row.forEach { (v, name) ->
-                        val key = kind to v
-                        val on = key in picked
-                        Column(Modifier.weight(1f)) {
-                            Box(
-                                Modifier.fillMaxWidth().height(118.dp).bounceClick { if (on) picked.remove(key) else picked.add(key) }
-                                    .clip(RoundedCornerShape(18.dp)).background(c.surface)
-                                    .border(if (on) 2.dp else 1.dp, if (on) c.primary else c.outline, RoundedCornerShape(18.dp)),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                BoxWithConstraints(Modifier.fillMaxSize().padding(8.dp), contentAlignment = Alignment.Center) {
-                                    val scale = (maxWidth.value / 360f)
-                                    Box(Modifier.clip(RoundedCornerShape(8.dp)).background(p.theme().bg)) {
-                                        Scaled(scale) { BlockView(defaultBlock(kind, v, p, lang), p) }
-                                    }
-                                }
-                                androidx.compose.animation.AnimatedVisibility(on, Modifier.align(Alignment.BottomStart).padding(8.dp), enter = scaleIn() + fadeIn(), exit = scaleOut() + fadeOut()) {
-                                    Box(Modifier.size(24.dp).clip(CircleShape).background(c.primary), contentAlignment = Alignment.Center) {
-                                        Icon(Icons.Rounded.Check, null, tint = c.onPrimary, modifier = Modifier.size(16.dp))
-                                    }
-                                }
-                            }
-                            Text(name.t(), style = Type.small, color = c.text, modifier = Modifier.padding(top = 6.dp, start = 4.dp))
-                        }
+            if (tab == 0) {
+                if (saved.isEmpty()) Text(
+                    tr("لا توجد قطع محفوظة بعد. في صفحة البناء اضغط أي قطعة ثم «حفظ»، أو احفظ تصميماً من الاستوديو كقطعة.",
+                        "No saved blocks yet. In the page builder tap a block, then “Save”, or save a studio design as a block."),
+                    style = Type.body, color = c.muted, modifier = Modifier.padding(vertical = 24.dp),
+                ) else {
+                    val cats = saved.map { it.category }.distinct()
+                    Row(Modifier.horizontalScroll(rememberScrollState()).padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OptionChip(tr("الكل", "All"), savedFilter == null) { savedFilter = null }
+                        cats.forEach { cat -> OptionChip(categoryLabel(cat), savedFilter == cat) { savedFilter = cat } }
                     }
-                    if (row.size == 1) Spacer(Modifier.weight(1f))
+                    SavedGrid(saved.filter { savedFilter == null || it.category == savedFilter })
+                    Text(tr("اضغط مطولاً على قطعة لحذفها", "Long-press a block to delete it"), style = Type.small, color = c.muted)
                 }
+            } else {
+                val kind = kinds[tab - 1]
+                val mine = saved.filter { it.category == kind.name }
+                if (mine.isNotEmpty()) {
+                    Text(tr("قطعك المحفوظة", "Your saved blocks"), style = Type.label, color = c.muted, modifier = Modifier.padding(bottom = 8.dp))
+                    SavedGrid(mine)
+                    Text(tr("القطع الجاهزة", "Ready-made"), style = Type.label, color = c.muted, modifier = Modifier.padding(bottom = 8.dp))
+                }
+                val names = Variants.getValue(kind)
+                val order = if (kind == BlockKind.CUSTOM) CV.libraryOrder else names.indices.toList()
+                Grid(order) { v, m -> Tile("k:${kind.name}:$v", names[v].t(), defaultBlock(kind, v, p, lang), modifier = m) }
             }
             Spacer(Modifier.height(12.dp))
         }
@@ -391,12 +435,25 @@ fun BlockLibraryScreen(id: String, pageId: String) {
                 if (picked.isEmpty()) tr("اختر قطعة أو أكثر", "Pick one or more blocks") else tr("أضف إلى الصفحة (${picked.size})", "Add to page (${picked.size})"),
                 icon = Icons.Rounded.Add, enabled = picked.isNotEmpty(),
             ) {
-                val blocks = picked.map { (k, v) -> defaultBlock(k, v, p, lang) }
+                val blocks = picked.mapNotNull { key ->
+                    val parts = key.split(":")
+                    if (parts[0] == "s") saved.firstOrNull { it.id == parts[1] }?.instantiate(vm)
+                    else defaultBlock(BlockKind.valueOf(parts[1]), parts[2].toInt(), p, lang)
+                }
                 vm.updateProject(id) { pr -> pr.copy(pages = pr.pages.map { if (it.id == pageId) it.copy(blocks = it.blocks + blocks) else it }) }
                 nav.previousBackStackEntry?.savedStateHandle?.set("selectPage", pageId)
                 nav.popBackStack()
             }
         }
+    }
+    deleting?.let { sb ->
+        AlertDialog(
+            onDismissRequest = { deleting = null }, containerColor = c.surface,
+            title = { Text(tr("حذف «${sb.name}»؟", "Delete “${sb.name}”?"), style = Type.h3, color = c.text) },
+            text = { Text(tr("ستُحذف من القطع المحفوظة فقط، ولن تتأثر الصفحات التي استعملتها.", "It's removed from saved blocks only; pages that use it stay as they are."), color = c.muted) },
+            confirmButton = { TextButton(onClick = { vm.deleteSavedBlock(sb.id); picked.remove("s:${sb.id}"); deleting = null }) { Text(tr("حذف", "Delete"), color = c.danger) } },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text(tr("إلغاء", "Cancel")) } },
+        )
     }
 }
 
@@ -423,6 +480,7 @@ fun PageBuilderScreen(id: String) {
     val page = p.pages.firstOrNull { it.id == pageId } ?: p.pages.first()
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
     var editing by remember { mutableStateOf<String?>(null) }
+    var saving by remember { mutableStateOf<Block?>(null) }
     var preview by rememberSaveable { mutableStateOf(false) }
     var pageDialog by remember { mutableStateOf<Page?>(null) }
     var addingPage by remember { mutableStateOf(false) }
@@ -512,6 +570,7 @@ fun PageBuilderScreen(id: String) {
                                 val copyId = if (drawing != null) newId().also { vm.saveDesign(drawing.copy(id = it)) } else b.designId
                                 val i = blocks.indexOf(b); setBlocks(blocks.toMutableList().apply { add(i + 1, b.copy(id = newId(), designId = copyId)) })
                             }
+                            BlockAction(tr("حفظ", "Save"), Icons.Rounded.BookmarkAdd) { saving = b }
                             BlockAction(tr("أعلى", "Up"), Icons.Rounded.KeyboardArrowUp, enabled = gi > 0) { move(b, -1) }
                             BlockAction(tr("أسفل", "Down"), Icons.Rounded.KeyboardArrowDown, enabled = gi < group.lastIndex) { move(b, 1) }
                             BlockAction(tr("حذف", "Delete"), Icons.Rounded.Delete) {
@@ -642,6 +701,15 @@ fun PageBuilderScreen(id: String) {
         )
     }
 
+    saving?.let { b ->
+        val name = if (b.kind == BlockKind.CUSTOM) Variants.getValue(b.kind)[b.variant.coerceIn(Variants.getValue(b.kind).indices)].t() else b.kind.label().t()
+        SaveBlockDialog(
+            defaultName = b.title.ifBlank { name }, defaultCategory = b.kind.name, onDismiss = { saving = null },
+        ) { n, cat ->
+            vm.saveBlock(savedFrom(b, data, n, cat)); saving = null
+            android.widget.Toast.makeText(ctx, tr0(lang, "حُفظت في «القطع المحفوظة» بالمكتبة", "Saved to “Saved blocks” in the library"), android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
     if (addingPage) {
         val suggestions = listOf(tr("القائمة", "Menu"), tr("السلة", "Cart"), tr("حسابي", "Account"), tr("تسجيل الدخول", "Sign in"))
         val fallback = tr("صفحة جديدة", "New page")

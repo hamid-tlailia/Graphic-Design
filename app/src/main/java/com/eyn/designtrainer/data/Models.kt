@@ -33,6 +33,21 @@ data class AppData(
     val designs: List<Design> = emptyList(),
     val projects: List<AppProject> = emptyList(),
     val savedPairs: List<ColorPair> = emptyList(),
+    val savedBlocks: List<SavedBlock> = emptyList(),
+)
+
+/**
+ * A block the user saved for reuse in any project. [category] is a [BlockKind] name or a name
+ * the user typed. A free block carries its own copy of the drawing in [design].
+ */
+@Serializable
+data class SavedBlock(
+    val id: String = newId(),
+    val name: String,
+    val category: String,
+    val block: Block,
+    val design: Design? = null,
+    val created: Long = System.currentTimeMillis(),
 )
 
 @Serializable
@@ -83,6 +98,8 @@ data class El(
     val locked: Boolean = false,
     val iconStyle: Int = 0,     // IconFont style: 0 rounded, 1 solid, 2 outlined, 3 sharp, 4 two-tone
     val shape: Int = 0,         // SHAPE: index into Shapes.all; FRAME: index into Shapes.frames
+    val inner: Int = 0,         // decorative inner line: 0 none, 1 dotted, 2 dashed, 3 solid
+    val innerColor: Long = 0xFFFFFFFF,
 )
 
 @Serializable

@@ -199,7 +199,125 @@ object Shapes {
             cubicTo(w * .85f, h * .15f, w * .95f, h * .2f, w, h * .3f)
             lineTo(w, h); lineTo(0f, h); close()
         },
+        // ---- labels and badges
+        Def(L("بيضاوي", "Ellipse")) { w, h -> addOval(Rect(0f, 0f, w, h)) },
+        Def(L("ملصق بيضاوي مشقوق", "Notched oval label")) { w, h ->
+            val r = h * .16f
+            var p = oval(0f, 0f, w, h)
+            p = combine(PathOperation.Difference, p, oval(-r, h / 2 - r, r, h / 2 + r))
+            set(combine(PathOperation.Difference, p, oval(w - r, h / 2 - r, w + r, h / 2 + r)))
+        },
+        Def(L("ملصق بزوايا مشقوقة", "Notched label")) { w, h ->
+            val r = min(w, h) * .12f
+            var p = Path().apply { addRoundRect(RoundRect(0f, 0f, w, h, CornerRadius(r * .5f))) }
+            listOf(0f to 0f, w to 0f, 0f to h, w to h).forEach { (x, y) -> p = combine(PathOperation.Difference, p, oval(x - r, y - r, x + r, y + r)) }
+            set(p)
+        },
+        Def(L("فيونكة", "Bow")) { w, h ->
+            var p = oval(w * .3f, h * .08f, w * .7f, h * .92f)
+            p = combine(PathOperation.Union, p, oval(0f, h * .18f, w * .42f, h * .82f))
+            set(combine(PathOperation.Union, p, oval(w * .58f, h * .18f, w, h * .82f)))
+        },
+        Def(L("سحابة طويلة", "Long cloud")) { w, h ->
+            var p = Path().apply { addRoundRect(RoundRect(w * .08f, h * .22f, w * .92f, h * .78f, CornerRadius(h * .2f))) }
+            val n = 5; val rr = h * .22f
+            for (i in 0 until n) {
+                val cx = w * (.16f + .68f * i / (n - 1))
+                p = combine(PathOperation.Union, p, oval(cx - rr, h * .02f, cx + rr, h * .02f + 2 * rr))
+                p = combine(PathOperation.Union, p, oval(cx - rr, h * .98f - 2 * rr, cx + rr, h * .98f))
+            }
+            p = combine(PathOperation.Union, p, oval(0f, h * .25f, h * .5f, h * .75f))
+            set(combine(PathOperation.Union, p, oval(w - h * .5f, h * .25f, w, h * .75f)))
+        },
+        Def(L("لافتة مزخرفة", "Curly banner")) { w, h ->
+            moveTo(w * .1f, h * .15f)
+            quadraticTo(w / 2, h * .32f, w * .9f, h * .15f)
+            cubicTo(w * .95f, h * .35f, w * 1.02f, h * .42f, w, h / 2)
+            cubicTo(w * 1.02f, h * .58f, w * .95f, h * .65f, w * .9f, h * .85f)
+            quadraticTo(w / 2, h * .68f, w * .1f, h * .85f)
+            cubicTo(w * .05f, h * .65f, -w * .02f, h * .58f, 0f, h / 2)
+            cubicTo(-w * .02f, h * .42f, w * .05f, h * .35f, w * .1f, h * .15f)
+            close()
+        },
+        Def(L("بيضاوي مخرّم", "Scalloped oval")) { w, h ->
+            var p = oval(w * .06f, h * .06f, w * .94f, h * .94f)
+            val n = 22; val rr = min(w, h) * .07f
+            for (i in 0 until n) {
+                val a = 2 * PI * i / n
+                val cx = w / 2 + (w / 2 - rr) * cos(a).toFloat(); val cy = h / 2 + (h / 2 - rr) * sin(a).toFloat()
+                p = combine(PathOperation.Union, p, oval(cx - rr, cy - rr, cx + rr, cy + rr))
+            }
+            set(p)
+        },
+        Def(L("مستطيل بأطراف مخرّمة", "Scalloped ends")) { w, h ->
+            val rr = h * .12f
+            var p = Path().apply { addRect(Rect(rr, h * .1f, w - rr, h * .9f)) }
+            val n = 4
+            for (i in 0 until n) {
+                val cy = h * (.18f + .64f * i / (n - 1))
+                p = combine(PathOperation.Union, p, oval(0f, cy - rr, 2 * rr, cy + rr))
+                p = combine(PathOperation.Union, p, oval(w - 2 * rr, cy - rr, w, cy + rr))
+            }
+            set(p)
+        },
+        Def(L("ملصق بقمم", "Peaked label")) { w, h ->
+            var p = Path().apply { addRoundRect(RoundRect(0f, h * .25f, w, h * .75f, CornerRadius(h * .25f))) }
+            set(combine(PathOperation.Union, p, oval(w * .28f, 0f, w * .72f, h)))
+        },
+        Def(L("ربطة", "Bowtie")) { w, h ->
+            moveTo(0f, 0f); quadraticTo(w / 2, h * .32f, w, 0f)
+            quadraticTo(w * .86f, h / 2, w, h)
+            quadraticTo(w / 2, h * .68f, 0f, h)
+            quadraticTo(w * .14f, h / 2, 0f, 0f); close()
+        },
+        Def(L("بيضاوي شائك", "Spiky oval")) { w, h -> radial(w, h, 18, .8f) },
+        Def(L("ملصق بدائرة وسطى", "Center-bump label")) { w, h ->
+            var p = Path().apply { addRoundRect(RoundRect(0f, h * .3f, w, h * .7f, CornerRadius(h * .2f))) }
+            set(combine(PathOperation.Union, p, oval(w * .22f, h * .02f, w * .78f, h * .98f)))
+        },
+        Def(L("سحابة كلام", "Cloud bubble")) { w, h ->
+            var p = oval(w * .05f, h * .22f, w * .45f, h * .72f)
+            listOf(Rect(w * .2f, h * .05f, w * .6f, h * .55f), Rect(w * .45f, h * .02f, w * .85f, h * .5f), Rect(w * .6f, h * .2f, w, h * .7f), Rect(w * .3f, h * .3f, w * .75f, h * .78f))
+                .forEach { r -> p = combine(PathOperation.Union, p, Path().apply { addOval(r) }) }
+            p = combine(PathOperation.Union, p, Path().apply { poly(w * .62f to h * .66f, w * .8f to h * .68f, w * .9f to h) })
+            set(p)
+        },
+        Def(L("فقاعة بزاوية", "Corner bubble")) { w, h ->
+            val body = Path().apply { addRect(Rect(0f, 0f, w, h * .8f)) }
+            set(combine(PathOperation.Union, body, Path().apply { poly(w * .72f to h * .78f, w * .92f to h * .78f, w to h) }))
+        },
+        Def(L("فقاعة مربعة", "Square bubble")) { w, h ->
+            val body = Path().apply { addRoundRect(RoundRect(0f, 0f, w * .88f, h * .88f, CornerRadius(min(w, h) * .12f))) }
+            set(combine(PathOperation.Union, body, Path().apply { poly(w * .7f to h * .8f, w * .86f to h * .66f, w to h) }))
+        },
+        Def(L("زهرة كلام", "Flower bubble")) { w, h ->
+            var p = oval(w * .25f, h * .2f, w * .75f, h * .7f)
+            for (i in 0 until 7) {
+                val a = 2 * PI * i / 7
+                val cx = w / 2 + w * .24f * cos(a).toFloat(); val cy = h * .45f + h * .22f * sin(a).toFloat()
+                p = combine(PathOperation.Union, p, oval(cx - w * .17f, cy - h * .16f, cx + w * .17f, cy + h * .16f))
+            }
+            set(combine(PathOperation.Union, p, Path().apply { poly(w * .68f to h * .68f, w * .8f to h * .62f, w * .92f to h) }))
+        },
     )
+
+    /** Draws a decorative line inside [shape], inset from its edge, in the given [style] (1 dotted, 2 dashed, 3 solid). */
+    fun DrawScope.drawInnerLine(shape: Shape, style: Int, color: Color, sw: Float, inset: Float) {
+        if (style == 0 || size.width <= 2 * inset || size.height <= 2 * inset) return
+        val outline = shape.createOutline(Size(size.width - 2 * inset, size.height - 2 * inset), layoutDirection, this)
+        val p = when (outline) {
+            is Outline.Generic -> outline.path
+            is Outline.Rounded -> Path().apply { addRoundRect(outline.roundRect) }
+            is Outline.Rectangle -> Path().apply { addRect(outline.rect) }
+        }
+        p.translate(Offset(inset, inset))
+        val effect = when (style) {
+            1 -> PathEffect.dashPathEffect(floatArrayOf(0.1f, sw * 2.6f))
+            2 -> PathEffect.dashPathEffect(floatArrayOf(sw * 3f, sw * 2f))
+            else -> null
+        }
+        drawPath(p, color, style = Stroke(sw, cap = if (style == 1) StrokeCap.Round else StrokeCap.Butt, pathEffect = effect))
+    }
 
     fun path(index: Int, w: Float, h: Float): Path = Path().apply { all[index.coerceIn(all.indices)].build(this, w, h) }
 

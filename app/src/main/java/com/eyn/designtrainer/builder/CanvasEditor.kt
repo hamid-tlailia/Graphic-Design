@@ -160,6 +160,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.eyn.designtrainer.data.BlockKind
 import com.eyn.designtrainer.data.Design
 import com.eyn.designtrainer.data.El
 import com.eyn.designtrainer.data.ElType
@@ -438,6 +439,7 @@ private val TEXT_TYPES = setOf(ElType.TEXT, ElType.BUTTON, ElType.INPUT, ElType.
 private val VALUE_TYPES = setOf(ElType.CHECKBOX, ElType.TOGGLE, ElType.SLIDER, ElType.PROGRESS, ElType.RATING)
 private val PHOTO_TYPES = setOf(ElType.IMAGE, ElType.AVATAR, ElType.BOX, ElType.CARD, ElType.CIRCLE, ElType.BUTTON, ElType.SHAPE)
 private val ROUND = setOf(ElType.CIRCLE, ElType.AVATAR)
+private val INNER_TYPES = setOf(ElType.SHAPE, ElType.BOX, ElType.CIRCLE, ElType.BUTTON, ElType.CARD, ElType.CHIP, ElType.IMAGE)
 
 // ============================================================================ screen
 
@@ -475,6 +477,7 @@ fun CanvasEditorScreen(id: String) {
     var pickingIcon by remember { mutableStateOf(false) }
     var panelOpen by remember { mutableStateOf(true) }
     var reviewing by remember { mutableStateOf(false) }
+    var savingBlock by remember { mutableStateOf(false) }
     var exporting by remember { mutableStateOf(false) }
     var exportScale by remember { mutableStateOf<Float?>(null) }
     var exportTransparent by remember { mutableStateOf(false) }
@@ -672,9 +675,13 @@ fun CanvasEditorScreen(id: String) {
     }
 
     if (reviewing) ReviewSheet(state, onDismiss = { reviewing = false }, onShow = { id -> state.selectedId = id; reviewing = false })
-    if (exporting) ExportSheet(state.design, onDismiss = { exporting = false }) { w, transparent, jpeg, gallery ->
+    if (exporting) ExportSheet(state.design, onDismiss = { exporting = false }, onSaveBlock = { exporting = false; savingBlock = true }) { w, transparent, jpeg, gallery ->
         exporting = false
         export(w, transparent, jpeg, gallery)
+    }
+    if (savingBlock) SaveBlockDialog(state.design.name, BlockKind.CUSTOM.name, onDismiss = { savingBlock = false }) { n, cat ->
+        vm.saveBlock(savedFromDesign(state.design, n, cat)); savingBlock = false
+        Toast.makeText(ctx, if (lang == Lang.AR) "حُفظ في «القطع المحفوظة» بمكتبة القطع" else "Saved to “Saved blocks” in the block library", Toast.LENGTH_SHORT).show()
     }
 
     if (pickingIcon) {
@@ -1212,6 +1219,17 @@ private fun StylePanel(state: EditorState, pickPhoto: (String) -> Unit, onRemove
         if (e.borderW > 0f) {
             PanelLabel(if (frame) tr("لون الزخرفة", "Frame color") else tr("لون الإطار", "Border color"))
             SwatchRow(e.borderColor.c(), { col -> state.updateEl(e.id) { it.copy(borderColor = col.argb()) } })
+        }
+        if (e.type in INNER_TYPES) {
+            PanelLabel(tr("خط داخلي مزخرف", "Decorative inner line"))
+            Segmented(
+                listOf(tr("بدون", "None"), tr("منقّط", "Dotted"), tr("متقطع", "Dashed"), tr("متصل", "Solid")), e.inner,
+                { i -> state.updateEl(e.id) { it.copy(inner = i) } }, Modifier.fillMaxWidth(),
+            )
+            if (e.inner > 0) {
+                Spacer(Modifier.height(8.dp))
+                SwatchRow(e.innerColor.c(), { col -> state.updateEl(e.id) { it.copy(innerColor = col.argb()) } })
+            }
         }
         NumStepper(tr("الظل", "Shadow"), e.shadow, 0f, 40f) { v -> state.updateEl(e.id, "sh${e.id}") { it.copy(shadow = v) } }
     }

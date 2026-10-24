@@ -23,6 +23,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoFixHigh
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.BookmarkAdd
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -146,7 +147,7 @@ fun ReviewSheet(state: EditorState, onDismiss: () -> Unit, onShow: (String) -> U
 /** Export options: format, resolution (HD up to 4K) and transparent background. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ExportSheet(design: Design, onDismiss: () -> Unit, onExport: (widthPx: Int, transparent: Boolean, jpeg: Boolean, gallery: Boolean) -> Unit) {
+fun ExportSheet(design: Design, onDismiss: () -> Unit, onSaveBlock: () -> Unit, onExport: (widthPx: Int, transparent: Boolean, jpeg: Boolean, gallery: Boolean) -> Unit) {
     val c = Eyn.c
     var size by remember { mutableIntStateOf(1) }
     var format by remember { mutableIntStateOf(0) }
@@ -179,6 +180,8 @@ fun ExportSheet(design: Design, onDismiss: () -> Unit, onExport: (widthPx: Int, 
             PrimaryButton(tr("حفظ في المعرض", "Save to gallery"), icon = Icons.Rounded.Download) { onExport(widths[size], transparent, format == 1, true) }
             Spacer(Modifier.height(10.dp))
             OutlineButton(tr("مشاركة", "Share"), icon = Icons.Rounded.Share) { onExport(widths[size], transparent, format == 1, false) }
+            Spacer(Modifier.height(10.dp))
+            OutlineButton(tr("احفظه كقطعة لمشاريعي", "Save as a block for my projects"), icon = Icons.Rounded.BookmarkAdd) { onSaveBlock() }
             Spacer(Modifier.height(20.dp))
         }
     }

@@ -277,10 +277,16 @@ class ScreenshotTest {
     }
 
     @Test fun s43_canvas_shapes() {
-        val st = EditorState(blankDesign(Lang.AR).copy(id = "d3", w = 360f, h = 760f))
+        val st = EditorState(blankDesign(Lang.AR).copy(id = "d3", w = 360f, h = 780f))
+        val colors = listOf(0xFFB5A33A, 0xFF5A4E44, 0xFFE09A1E, 0xFFB21FA0, 0xFF1D2D6B, 0xFF1EA5DE, 0xFFC0141F, 0xFFB3174F)
         com.eyn.designtrainer.builder.Shapes.all.indices.forEach { i ->
             st.add(ElType.SHAPE, Lang.AR, variant = i)
-            st.updateEl(st.selectedId!!) { it.copy(x = 24f + (i % 6) * 54f, y = 30f + (i / 6) * 54f, w = 46f, h = 46f) }
+            // The label shapes added last get the stitched inner line from the reference sheet.
+            val label = i >= 40
+            st.updateEl(st.selectedId!!) {
+                it.copy(x = 12f + (i % 7) * 49f, y = 12f + (i / 7) * 49f, w = 44f, h = if (label) 32f else 44f,
+                    bg = if (label) colors[i % colors.size] else it.bg, inner = if (label) 1 else 0, borderW = 0f)
+            }
         }
         com.eyn.designtrainer.builder.Shapes.frames.indices.forEach { i ->
             st.add(ElType.FRAME, Lang.AR, variant = i)
@@ -290,8 +296,8 @@ class ScreenshotTest {
             st.add(ElType.PAYMENT, Lang.AR, kind = k)
             st.updateEl(st.selectedId!!) { it.copy(x = 20f + (i % 6) * 54f, y = 640f + (i / 6) * 40f, w = 50f, h = 32f) }
         }
-        st.add(ElType.SHAPE, Lang.AR, variant = 25)
-        st.updateEl(st.selectedId!!) { it.copy(x = 60f, y = 360f, w = 240f, h = 50f, text = "عنوان على شريط") }
+        st.add(ElType.SHAPE, Lang.AR, variant = 44)
+        st.updateEl(st.selectedId!!) { it.copy(x = 50f, y = 730f, w = 260f, h = 44f, text = "عنوان على لافتة", bg = 0xFFC0141F, inner = 1) }
         still("43_canvas_shapes") { com.eyn.designtrainer.builder.DesignCanvas(st.design, 1.1f) }
     }
 
@@ -329,6 +335,18 @@ class ScreenshotTest {
         settle()
         println("LOGO after quick pick: " + vm.data.value!!.projects.first().logoIcon)
         org.junit.Assert.assertEquals("star", vm.data.value!!.projects.first().logoIcon)
+    }
+
+    @Test fun s49_library_saved() {
+        val base = data(Lang.AR)
+        val p = base.projects.first()
+        val header = com.eyn.designtrainer.builder.defaultBlock(com.eyn.designtrainer.data.BlockKind.HEADER, 3, p, Lang.AR)
+        val saved = listOf(
+            com.eyn.designtrainer.builder.savedFromDesign(freeDesign(), "شريط اللعبة", "ألعاب"),
+            com.eyn.designtrainer.builder.savedFrom(header, base, "هيدر البحث", "HEADER"),
+            com.eyn.designtrainer.builder.savedFrom(com.eyn.designtrainer.builder.defaultBlock(com.eyn.designtrainer.data.BlockKind.CUSTOM, 22, p, Lang.AR), base, "إشعاراتي", "ألعاب"),
+        )
+        shot("49_library_saved", Routes.library("p1", "pg1"), d = base.copy(savedBlocks = saved))
     }
 
     @Test fun s45_shop_code() {

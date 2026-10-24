@@ -120,4 +120,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun deleteProject(id: String) = update { d -> d.copy(projects = d.projects.filter { it.id != id }) }
+
+    // ------------------------------------------------------------ saved blocks
+    fun saveBlock(b: SavedBlock) = update { d -> d.copy(savedBlocks = listOf(b) + d.savedBlocks.filter { it.id != b.id }) }
+
+    fun deleteSavedBlock(id: String) = update { d -> d.copy(savedBlocks = d.savedBlocks.filter { it.id != id }) }
 }

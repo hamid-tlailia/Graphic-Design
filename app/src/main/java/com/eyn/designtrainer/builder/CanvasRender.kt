@@ -178,6 +178,9 @@ fun RenderEl(e: El, scale: Float, modifier: Modifier = Modifier) {
     ) {
         if (e.backImage.isNotEmpty() && hasBox) PhotoImage(e.backImage, 0, Modifier.fillMaxSize())
         if (e.image.isNotEmpty() && hasBox) PhotoImage(e.image, e.fit, Modifier.fillMaxSize())
+        if (e.inner > 0 && hasBox) androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+            with(Shapes) { drawInnerLine(shape, e.inner, e.innerColor.c(), (2f * scale).dp.toPx(), ((6f + e.borderW) * scale).dp.toPx()) }
+        }
         val inner = Modifier.fillMaxSize().padding(horizontal = (e.padH * scale).dp, vertical = (e.padV * scale).dp)
         when (e.type) {
             ElType.TEXT -> Box(inner, contentAlignment = BiasAlignment(hBias, vBias)) {
