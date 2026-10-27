@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -44,6 +45,7 @@ object CV {
     const val ADD_BAR = 19; const val CHECKS = 20; const val FREE = 21
     const val NOTIFS = 22; const val CHAT = 23; const val FAQ = 24; const val TIMELINE = 25; const val CALENDAR = 26
     const val EMPTY = 27; const val ONBOARD = 28; const val PRICING = 29; const val COUNTDOWN = 30
+    const val SOCIAL = 31; const val MAP = 32; const val OFFERS = 33; const val ARTICLES = 34; const val CHAT_LIST = 35
 
     val names: List<L> = listOf(
         L("صف أيقونات ونصوص", "Icon row"), L("قائمة عناصر وأسعار", "Item list"), L("شبكة بطاقات", "Card grid"),
@@ -57,26 +59,29 @@ object CV {
         L("قائمة إشعارات", "Notifications"), L("محادثة", "Chat"), L("أسئلة شائعة", "FAQ"), L("تتبع الطلب", "Order tracking"),
         L("تقويم", "Calendar"), L("شاشة فارغة", "Empty state"), L("شريحة ترحيب", "Onboarding slide"), L("باقات الأسعار", "Pricing plans"),
         L("عدّاد تنازلي", "Countdown"),
+        L("تسجيل الدخول بحسابات التواصل", "Social sign-in"), L("خريطة", "Map"), L("عروض أسعار السائقين", "Driver price offers"),
+        L("مقالات", "Articles"), L("قائمة المحادثات", "Chat list"),
     )
 
     /** Shown first in the library: the block you draw yourself. */
     val libraryOrder: List<Int> = listOf(FREE) + (0 until names.size).filter { it != FREE }
 
-    private val noItems = setOf(SECTION, PROMO, DIVIDER, BANNER, PRODUCT, PROFILE, ALERT, ADD_BAR, FREE, CALENDAR, EMPTY, ONBOARD)
+    private val noItems = setOf(SECTION, PROMO, DIVIDER, BANNER, PRODUCT, PROFILE, ALERT, ADD_BAR, FREE, CALENDAR, EMPTY, ONBOARD, MAP)
     fun hasItems(v: Int) = v !in noItems
     fun icons(v: Int) = v in setOf(ICON_ROW, ITEM_LIST, CARD_GRID, TOGGLES, ICON_GRID, NOTIFS)
     fun payments(v: Int) = v == PAY_METHODS || v == PAY_LOGOS
+    fun socials(v: Int) = v == SOCIAL
     fun labels(v: Int) = v != PAY_LOGOS
-    fun value(v: Int) = v in setOf(ICON_ROW, ITEM_LIST, CARD_GRID, CART, SUMMARY, REVIEWS, STATS, CHECKS, NOTIFS, CHAT, TIMELINE, PRICING, COUNTDOWN)
-    fun image(v: Int) = v in setOf(CARD_GRID, CART, REVIEWS)
+    fun value(v: Int) = v in setOf(ICON_ROW, ITEM_LIST, CARD_GRID, CART, SUMMARY, REVIEWS, STATS, CHECKS, NOTIFS, CHAT, TIMELINE, PRICING, COUNTDOWN, OFFERS, ARTICLES, CHAT_LIST)
+    fun image(v: Int) = v in setOf(CARD_GRID, CART, REVIEWS, ARTICLES)
     fun active(v: Int) = v == PAY_METHODS || v == STEPS || v == TIMELINE
-    fun note(v: Int) = v in setOf(REVIEWS, NOTIFS, FAQ, TIMELINE, PRICING)
-    fun qty(v: Int) = v == CART
-    fun on(v: Int) = v in setOf(TOGGLES, CHECKS, NOTIFS, CHAT, FAQ, PRICING)
+    fun note(v: Int) = v in setOf(REVIEWS, NOTIFS, FAQ, TIMELINE, PRICING, OFFERS, ARTICLES, CHAT_LIST)
+    fun qty(v: Int) = v == CART || v == CHAT_LIST
+    fun on(v: Int) = v in setOf(TOGGLES, CHECKS, NOTIFS, CHAT, FAQ, PRICING, CHAT_LIST)
     fun blockImage(v: Int) = v in setOf(BANNER, PRODUCT, PROFILE, ONBOARD)
     fun blockIcon(v: Int) = v == ALERT || v == EMPTY
     /** Long text (body) for these. */
-    fun body(v: Int) = v in setOf(PRODUCT, ALERT, EMPTY, ONBOARD, PRICING)
+    fun body(v: Int) = v in setOf(PRODUCT, ALERT, EMPTY, ONBOARD, PRICING, OFFERS)
     fun price(v: Int) = v == PRODUCT || v == ADD_BAR
 
     /** Optional parts the user can switch off, keyed as stored in [Block.hidden]. */
@@ -91,27 +96,33 @@ object CV {
         NOTIFS -> listOf(OPT_ICON to L("الأيقونات", "Icons"), OPT_DOT to L("نقطة غير المقروء", "Unread dot"))
         CHAT -> listOf(OPT_INPUT to L("حقل الكتابة", "Message field"), OPT_IMAGE to L("الصورة الشخصية", "Avatar"))
         ONBOARD -> listOf(OPT_DOTS to L("نقاط التنقل", "Page dots"))
+        SOCIAL -> listOf(OPT_LABELS to L("النصوص (بدونها أيقونات فقط)", "Labels (off = icons only)"))
+        MAP -> listOf(OPT_ROUTE to L("المسار والدبابيس", "Route & pins"), OPT_INPUT to L("بطاقة «إلى أين؟»", "“Where to?” card"))
+        ARTICLES -> listOf(OPT_IMAGE to L("الصور", "Images"), OPT_FEATURED to L("أول مقال كبير", "Big first article"))
         else -> emptyList()
     }
 
     /** What the per-item switch means, by variant. */
     fun onLabel(v: Int): L = when (v) {
-        NOTIFS -> L("غير مقروء", "Unread"); CHAT -> L("رسالتي", "Mine"); FAQ -> L("مفتوح", "Open")
+        NOTIFS -> L("غير مقروء", "Unread"); CHAT -> L("رسالتي", "Mine"); FAQ -> L("مفتوح", "Open"); CHAT_LIST -> L("متصل", "Online")
         PRICING -> L("مميّزة", "Featured"); CHECKS -> L("محدد", "Checked"); else -> L("مفعّل", "On")
     }
 
     fun noteHint(v: Int): L = when (v) {
         NOTIFS -> L("نص الإشعار", "Notification text"); FAQ -> L("الإجابة", "Answer"); TIMELINE -> L("التفاصيل", "Details")
-        PRICING -> L("المزايا (سطر لكل ميزة)", "Features (one per line)"); else -> L("نص التعليق", "Review text")
+        PRICING -> L("المزايا (سطر لكل ميزة)", "Features (one per line)"); OFFERS -> L("السيارة والتقييم", "Car and rating")
+        ARTICLES -> L("الكاتب ومدة القراءة", "Author and reading time"); CHAT_LIST -> L("آخر رسالة", "Last message")
+        else -> L("نص التعليق", "Review text")
     }
 
     const val OPT_IMAGE = "image"; const val OPT_STEPPER = "stepper"; const val OPT_DELETE = "delete"; const val OPT_TOTAL = "total"
     const val OPT_RATING = "rating"; const val OPT_FAV = "fav"; const val OPT_CLOSE = "close"; const val OPT_LABELS = "labels"
     const val OPT_ICON = "icon"; const val OPT_DOT = "dot"; const val OPT_INPUT = "input"; const val OPT_DOTS = "dots"
+    const val OPT_ROUTE = "route"; const val OPT_FEATURED = "featured"
 
     fun valueHint(v: Int): L = when (v) {
         REVIEWS -> L("التقييم من 5", "Rating out of 5"); STATS, COUNTDOWN -> L("الرقم", "Number"); SUMMARY -> L("المبلغ", "Amount")
-        NOTIFS, CHAT, TIMELINE -> L("الوقت", "Time")
+        NOTIFS, CHAT, TIMELINE, CHAT_LIST -> L("الوقت", "Time"); ARTICLES -> L("التصنيف", "Category")
         else -> L("السعر", "Price")
     }
 
@@ -167,6 +178,11 @@ object CV {
             )
             PRICING -> b.copy(title = s("اختر باقتك", "Choose your plan"), body = s("/ شهرياً", "/ month"), button = s("اشترك", "Subscribe"))
             COUNTDOWN -> b.copy(title = s("ينتهي العرض خلال", "Offer ends in"), align = 1, radius = 14f)
+            SOCIAL -> b.copy(title = s("أو تابع باستخدام", "Or continue with"), subtitle = "", align = 1, radius = 14f)
+            MAP -> b.copy(title = s("إلى أين؟", "Where to?"), subtitle = "", padding = 0f, radius = 0f)
+            OFFERS -> b.copy(title = s("عروض السائقين", "Driver offers"), button = s("قبول", "Accept"), body = s("رفض", "Decline"))
+            ARTICLES -> b.copy(title = s("أحدث المقالات", "Latest articles"), subtitle = "")
+            CHAT_LIST -> b.copy(title = s("المحادثات", "Chats"), subtitle = "")
             else -> b
         }
     }
@@ -219,6 +235,23 @@ object CV {
             PRICING -> listOf(
                 i("أساسية", "Basic", value = "19").copy(note = s("10 طلبات\nتوصيل عادي", "10 orders\nStandard delivery")),
                 i("مميّزة", "Plus", value = "39").copy(note = s("طلبات غير محدودة\nتوصيل مجاني\nخصم 10٪", "Unlimited orders\nFree delivery\n10% off"), on = true),
+            )
+            SOCIAL -> listOf("google", "facebook", "apple").map { BlockItem(Shapes.socialLabel(it, lang == Lang.AR), it) }
+            OFFERS -> listOf(
+                i("خالد", "Khaled", value = "25").copy(note = s("تويوتا كامري · ★ 4.9 · 3 د", "Toyota Camry · ★ 4.9 · 3 min")),
+                i("سعيد", "Saeed", value = "22").copy(note = s("هيونداي النترا · ★ 4.7 · 6 د", "Hyundai Elantra · ★ 4.7 · 6 min")),
+                i("مريم", "Maryam", value = "28").copy(note = s("كيا K5 · ★ 5.0 · 2 د", "Kia K5 · ★ 5.0 · 2 min")),
+            )
+            ARTICLES -> listOf(
+                i("كيف تختار ألوان علامتك التجارية", "How to pick your brand colors", value = s("تصميم", "Design")).copy(note = s("سارة · 5 دقائق قراءة", "Sara · 5 min read")),
+                i("أساسيات الطباعة العربية", "Arabic typography basics", value = s("خطوط", "Type")).copy(note = s("أحمد · 7 دقائق", "Ahmed · 7 min")),
+                i("10 أخطاء شائعة في الواجهات", "10 common UI mistakes", value = "UX").copy(note = s("نورة · 4 دقائق", "Noura · 4 min")),
+            )
+            CHAT_LIST -> listOf(
+                i("سارة", "Sara", value = "10:24").copy(note = s("تمام، أراك غداً 👋", "Great, see you tomorrow 👋"), qty = 2, on = true),
+                i("فريق التصميم", "Design team", value = "09:10").copy(note = s("أحمد: أرسلت الملفات الجديدة", "Ahmed: sent the new files"), qty = 5),
+                i("محمد", "Mohammed", value = s("أمس", "Yesterday")).copy(note = s("شكراً لك!", "Thank you!"), qty = 0, on = true),
+                i("نورة", "Noura", value = s("الإثنين", "Mon")).copy(note = s("هل راجعت التصميم؟", "Did you review the design?"), qty = 0),
             )
             COUNTDOWN -> listOf(i("يوم", "days", value = "02"), i("ساعة", "hours", value = "14"), i("دقيقة", "min", value = "35"), i("ثانية", "sec", value = "12"))
             else -> emptyList()
@@ -284,6 +317,17 @@ private fun Stars(rating: Float, t: PTheme, size: Float = 14f) {
 /** Variants from [CV.CART] on. Called inside the block's padded column. */
 @Composable
 internal fun ColumnScope.CustomExtra(b: Block, t: PTheme, items: List<BlockItem>, lang: Lang, price: (String) -> String) {
+    // Split by group: one function holding every variant is too large for the JVM.
+    when (b.variant) {
+        CV.CART, CV.SUMMARY, CV.PAY_METHODS, CV.PAY_LOGOS, CV.SECTION, CV.PROMO, CV.STEPS, CV.TOGGLES, CV.CHECKS -> CustomShop(b, t, items, lang, price)
+        CV.REVIEWS, CV.DIVIDER, CV.BANNER, CV.PRODUCT, CV.STATS, CV.PROFILE, CV.ALERT, CV.ICON_GRID, CV.ADD_BAR -> CustomContent(b, t, items, lang, price)
+        CV.FREE, CV.NOTIFS, CV.CHAT, CV.FAQ, CV.TIMELINE, CV.CALENDAR -> CustomLists(b, t, items, lang, price)
+        CV.EMPTY, CV.ONBOARD, CV.PRICING, CV.COUNTDOWN, CV.SOCIAL, CV.MAP, CV.OFFERS, CV.ARTICLES, CV.CHAT_LIST -> CustomApps(b, t, items, lang, price)
+    }
+}
+
+@Composable
+private fun ColumnScope.CustomShop(b: Block, t: PTheme, items: List<BlockItem>, lang: Lang, price: (String) -> String) {
     val r = b.radius.dp
     val center = b.align == 1
     val ta = if (center) TextAlign.Center else TextAlign.Start
@@ -405,6 +449,33 @@ internal fun ColumnScope.CustomExtra(b: Block, t: PTheme, items: List<BlockItem>
                 if (i < items.lastIndex) Box(Modifier.padding(horizontal = 14.dp)) { divider() }
             }
         }
+        CV.CHECKS -> Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(r)).background(t.card)) {
+            items.forEachIndexed { i, item ->
+                Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier.size(22.dp).clip(RoundedCornerShape(6.dp)).background(if (item.on) t.primary else Color.Transparent)
+                            .border(2.dp, if (item.on) t.primary else t.ink.copy(alpha = 0.25f), RoundedCornerShape(6.dp)),
+                        contentAlignment = Alignment.Center,
+                    ) { if (item.on) FontIcon("check", t.onPrimary, 16f) }
+                    Spacer(Modifier.width(12.dp))
+                    PText(item.label, t, 14, modifier = Modifier.weight(1f))
+                    if (item.value.isNotBlank()) PText("+" + price(item.value.trimStart('+')), t, 13, t.muted)
+                }
+                if (i < items.lastIndex) Box(Modifier.padding(horizontal = 14.dp)) { divider() }
+            }
+        }
+        else -> {}
+    }
+}
+
+@Composable
+private fun ColumnScope.CustomContent(b: Block, t: PTheme, items: List<BlockItem>, lang: Lang, price: (String) -> String) {
+    val r = b.radius.dp
+    val center = b.align == 1
+    val ta = if (center) TextAlign.Center else TextAlign.Start
+    val ih = b.itemHeight
+    val divider = @Composable { Box(Modifier.fillMaxWidth().height(1.dp).background(t.ink.copy(alpha = 0.06f))) }
+    when (b.variant) {
         CV.REVIEWS -> Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             items.forEach { item ->
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(r)).background(t.card).padding(14.dp)) {
@@ -522,6 +593,18 @@ internal fun ColumnScope.CustomExtra(b: Block, t: PTheme, items: List<BlockItem>
                 if (b.price.isNotBlank()) PText(price(b.price), t, 15, t.onPrimary, bold = true)
             }
         }
+        else -> {}
+    }
+}
+
+@Composable
+private fun ColumnScope.CustomLists(b: Block, t: PTheme, items: List<BlockItem>, lang: Lang, price: (String) -> String) {
+    val r = b.radius.dp
+    val center = b.align == 1
+    val ta = if (center) TextAlign.Center else TextAlign.Start
+    val ih = b.itemHeight
+    val divider = @Composable { Box(Modifier.fillMaxWidth().height(1.dp).background(t.ink.copy(alpha = 0.06f))) }
+    when (b.variant) {
         CV.FREE -> {
             val design = com.eyn.designtrainer.ui.LocalData.current.designs.firstOrNull { it.id == b.designId }
             androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
@@ -643,6 +726,18 @@ internal fun ColumnScope.CustomExtra(b: Block, t: PTheme, items: List<BlockItem>
                 }
             }
         }
+        else -> {}
+    }
+}
+
+@Composable
+private fun ColumnScope.CustomApps(b: Block, t: PTheme, items: List<BlockItem>, lang: Lang, price: (String) -> String) {
+    val r = b.radius.dp
+    val center = b.align == 1
+    val ta = if (center) TextAlign.Center else TextAlign.Start
+    val ih = b.itemHeight
+    val divider = @Composable { Box(Modifier.fillMaxWidth().height(1.dp).background(t.ink.copy(alpha = 0.06f))) }
+    when (b.variant) {
         CV.EMPTY -> Column(Modifier.fillMaxWidth().padding(vertical = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             val s = if (ih > 0) ih.dp else 96.dp
             Box(Modifier.size(s).clip(CircleShape).background(t.surface), contentAlignment = Alignment.Center) { FontIcon(b.icon.ifBlank { "inbox" }, t.primary, s.value * 0.45f) }
@@ -714,20 +809,119 @@ internal fun ColumnScope.CustomExtra(b: Block, t: PTheme, items: List<BlockItem>
                 }
             }
         }
-        CV.CHECKS -> Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(r)).background(t.card)) {
-            items.forEachIndexed { i, item ->
-                Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        Modifier.size(22.dp).clip(RoundedCornerShape(6.dp)).background(if (item.on) t.primary else Color.Transparent)
-                            .border(2.dp, if (item.on) t.primary else t.ink.copy(alpha = 0.25f), RoundedCornerShape(6.dp)),
-                        contentAlignment = Alignment.Center,
-                    ) { if (item.on) FontIcon("check", t.onPrimary, 16f) }
-                    Spacer(Modifier.width(12.dp))
-                    PText(item.label, t, 14, modifier = Modifier.weight(1f))
-                    if (item.value.isNotBlank()) PText("+" + price(item.value.trimStart('+')), t, 13, t.muted)
-                }
-                if (i < items.lastIndex) Box(Modifier.padding(horizontal = 14.dp)) { divider() }
+        CV.SOCIAL -> if (b.shows(CV.OPT_LABELS)) Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            items.forEach { Shapes.SocialButton(it.icon, it.label, Modifier.fillMaxWidth().height(if (ih > 0) ih.dp else 50.dp), b.radius, t.font) }
+        } else Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally)) {
+            items.forEach {
+                val (bg, _, border) = Shapes.socialColors(it.icon)
+                val s = if (ih > 0) ih.dp else 52.dp
+                Box(
+                    Modifier.size(s).clip(CircleShape).background(bg).then(if (border != null) Modifier.border(1.dp, border, CircleShape) else Modifier),
+                    contentAlignment = Alignment.Center,
+                ) { Shapes.SocialLogo(it.icon, s.value * 0.44f, onDark = bg.luminance() < 0.3f) }
             }
         }
+        CV.MAP -> Box(Modifier.fillMaxWidth().height(if (ih > 0) ih.dp else 300.dp).clip(RoundedCornerShape(r)).background(Color(0xFFE8EEF0))) {
+            androidx.compose.foundation.Canvas(Modifier.matchParentSize()) {
+                val w = size.width; val h = size.height
+                // Parks, blocks and streets.
+                drawRect(Color(0xFFD5EAD2), androidx.compose.ui.geometry.Offset(w * .62f, h * .08f), androidx.compose.ui.geometry.Size(w * .3f, h * .22f))
+                drawCircle(Color(0xFFCFE3F2), w * .12f, androidx.compose.ui.geometry.Offset(w * .15f, h * .78f))
+                listOf(.18f, .44f, .7f).forEach { y -> drawLine(Color.White, androidx.compose.ui.geometry.Offset(0f, h * y), androidx.compose.ui.geometry.Offset(w, h * y + h * .04f), 14.dp.toPx()) }
+                listOf(.3f, .58f, .86f).forEach { x -> drawLine(Color.White, androidx.compose.ui.geometry.Offset(w * x, 0f), androidx.compose.ui.geometry.Offset(w * x - w * .05f, h), 10.dp.toPx()) }
+                if (b.shows(CV.OPT_ROUTE)) {
+                    val route = androidx.compose.ui.graphics.Path().apply {
+                        moveTo(w * .26f, h * .74f); lineTo(w * .3f, h * .46f); lineTo(w * .57f, h * .47f); lineTo(w * .56f, h * .2f); lineTo(w * .74f, h * .2f)
+                    }
+                    drawPath(route, t.primary, style = androidx.compose.ui.graphics.drawscope.Stroke(5.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+                    drawCircle(Color.White, 8.dp.toPx(), androidx.compose.ui.geometry.Offset(w * .26f, h * .74f))
+                    drawCircle(t.primary, 5.dp.toPx(), androidx.compose.ui.geometry.Offset(w * .26f, h * .74f))
+                }
+            }
+            if (b.shows(CV.OPT_ROUTE)) {
+                Box(Modifier.align(Alignment.TopStart).padding(start = 0.dp).fillMaxWidth().fillMaxHeight()) {
+                    FontIcon("location_on", t.accent, 36f, modifier = Modifier.align(androidx.compose.ui.BiasAlignment(0.48f, -0.72f)))
+                    FontIcon("local_taxi", t.ink, 26f, modifier = Modifier.align(androidx.compose.ui.BiasAlignment(-0.1f, 0.1f)))
+                }
+            }
+            if (b.shows(CV.OPT_INPUT) && b.title.isNotBlank()) Row(
+                Modifier.align(Alignment.BottomCenter).padding(14.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color.White).padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(12.dp).clip(CircleShape).background(t.accent)); Spacer(Modifier.width(10.dp))
+                PText(b.title, t, 15, bold = true, modifier = Modifier.weight(1f)); FontIcon("search", t.muted, 20f)
+            }
+        }
+        CV.OFFERS -> Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            items.forEach { item ->
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(r)).background(t.card).padding(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(44.dp).clip(CircleShape).background(t.surface), contentAlignment = Alignment.Center) { PText(item.label.take(1), t, 18, t.primary, bold = true) }
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            PText(item.label, t, 15, bold = true, maxLines = 1)
+                            if (item.note.isNotBlank()) PText(item.note, t, 12, t.muted, maxLines = 1)
+                        }
+                        PText(price(item.value), t, 18, t.primary, bold = true)
+                    }
+                    if (b.button.isNotBlank() || b.body.isNotBlank()) Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        if (b.body.isNotBlank()) Box(
+                            Modifier.weight(1f).height(42.dp).clip(RoundedCornerShape(r * 0.7f)).border(1.dp, t.ink.copy(alpha = 0.15f), RoundedCornerShape(r * 0.7f)),
+                            contentAlignment = Alignment.Center,
+                        ) { PText(b.body, t, 14, t.ink, bold = true) }
+                        if (b.button.isNotBlank()) Box(Modifier.weight(1f).height(42.dp).clip(RoundedCornerShape(r * 0.7f)).background(t.primary), contentAlignment = Alignment.Center) {
+                            PText(b.button, t, 14, t.onPrimary, bold = true)
+                        }
+                    }
+                }
+            }
+        }
+        CV.ARTICLES -> Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            items.forEachIndexed { i, item ->
+                val tag = @Composable {
+                    if (item.value.isNotBlank()) Box(Modifier.clip(CircleShape).background(t.surface).padding(horizontal = 10.dp, vertical = 3.dp)) { PText(item.value, t, 11, t.primary, bold = true) }
+                }
+                if (i == 0 && b.shows(CV.OPT_FEATURED)) Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(r)).background(t.card)) {
+                    if (b.shows(CV.OPT_IMAGE)) Placeholder(t, Modifier.fillMaxWidth().height(if (ih > 0) ih.dp else 170.dp), 0.dp, item.image)
+                    Column(Modifier.padding(14.dp)) {
+                        tag(); Spacer(Modifier.height(8.dp))
+                        PText(item.label, t, 17, bold = true)
+                        if (item.note.isNotBlank()) PText(item.note, t, 12, t.muted)
+                    }
+                } else Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(r)).background(t.card).padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (b.shows(CV.OPT_IMAGE)) { Placeholder(t, Modifier.size(76.dp), r * 0.6f, item.image); Spacer(Modifier.width(12.dp)) }
+                    Column(Modifier.weight(1f)) {
+                        tag(); Spacer(Modifier.height(4.dp))
+                        PText(item.label, t, 14, bold = true, maxLines = 2)
+                        if (item.note.isNotBlank()) PText(item.note, t, 11, t.muted, maxLines = 1)
+                    }
+                }
+            }
+        }
+        CV.CHAT_LIST -> Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(r)).background(t.card)) {
+            items.forEachIndexed { i, item ->
+                Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box {
+                        Box(Modifier.size(48.dp).clip(CircleShape).background(t.surface), contentAlignment = Alignment.Center) { PText(item.label.take(1), t, 18, t.primary, bold = true) }
+                        if (item.on) Box(Modifier.align(Alignment.BottomEnd).size(14.dp).clip(CircleShape).background(Color.White).padding(2.dp).clip(CircleShape).background(Color(0xFF2E9E6A)))
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            PText(item.label, t, 15, bold = true, maxLines = 1, modifier = Modifier.weight(1f))
+                            if (item.value.isNotBlank()) PText(item.value, t, 11, if (item.qty > 0) t.primary else t.muted)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            PText(item.note, t, 13, t.muted, maxLines = 1, modifier = Modifier.weight(1f))
+                            if (item.qty > 0) Box(Modifier.size(20.dp).clip(CircleShape).background(t.primary), contentAlignment = Alignment.Center) {
+                                PText("${item.qty}", t, 11, t.onPrimary, bold = true)
+                            }
+                        }
+                    }
+                }
+                if (i < items.lastIndex) Box(Modifier.padding(start = 72.dp, end = 12.dp)) { divider() }
+            }
+        }
+        else -> {}
     }
 }

@@ -276,6 +276,38 @@ class ScreenshotTest {
         }
     }
 
+    @Test fun s50_template_shop() = templateBoard(0)
+    @Test fun s50_template_chat() = templateBoard(1)
+    @Test fun s50_template_ride() = templateBoard(2)
+    @Test fun s50_template_blog() = templateBoard(3)
+
+    private fun templateBoard(i: Int) {
+        val p = com.eyn.designtrainer.builder.AppTemplates.all[i].build(Lang.AR)
+        still("50_template_$i") {
+            com.eyn.designtrainer.builder.Scaled(400f / 1680f, designWidth = 1680.dp) { com.eyn.designtrainer.builder.PresentationBoard(p) }
+        }
+    }
+
+    @Test fun distributeGivesEqualGaps() {
+        val st = EditorState(blankDesign(Lang.AR).copy(w = 360f, h = 200f))
+        st.add(ElType.BOX, Lang.AR); val bar = st.selectedId!!
+        st.updateEl(bar) { it.copy(x = 0f, y = 100f, w = 360f, h = 60f) }
+        listOf(10f, 60f, 300f).forEach { x -> st.add(ElType.CIRCLE, Lang.AR); st.updateEl(st.selectedId!!) { it.copy(x = x, y = 110f, w = 40f, h = 40f) } }
+        st.distribute(st.design.els.first { it.id == bar }, true)
+        val xs = st.design.els.filter { it.type == ElType.CIRCLE }.map { it.x }.sorted()
+        // (360 - 3 × 40) / 4 = 60 → 60, 160, 260
+        org.junit.Assert.assertEquals(listOf(60f, 160f, 260f), xs)
+    }
+
+    @Test fun s51_social_canvas() {
+        val st = EditorState(blankDesign(Lang.AR).copy(w = 360f, h = 420f))
+        com.eyn.designtrainer.builder.Shapes.socials.forEachIndexed { i, (k, _) ->
+            st.add(ElType.PAYMENT, Lang.AR, kind = com.eyn.designtrainer.builder.SOCIAL + k)
+            st.updateEl(st.selectedId!!) { it.copy(x = 40f, y = 20f + i * 56f) }
+        }
+        still("51_social_canvas") { com.eyn.designtrainer.builder.DesignCanvas(st.design, 1.1f) }
+    }
+
     @Test fun s43_canvas_shapes() {
         val st = EditorState(blankDesign(Lang.AR).copy(id = "d3", w = 360f, h = 780f))
         val colors = listOf(0xFFB5A33A, 0xFF5A4E44, 0xFFE09A1E, 0xFFB21FA0, 0xFF1D2D6B, 0xFF1EA5DE, 0xFFC0141F, 0xFFB3174F)

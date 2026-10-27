@@ -354,6 +354,18 @@ fun BrandLogo(modifier: Modifier = Modifier, nib: Color = Eyn.c.hero, curve: Col
     }
 }
 
+/** Grey-and-white checks that show where a canvas is transparent. */
+fun Modifier.checkerboard(cell: Dp = 10.dp) = drawBehind {
+    val c = cell.toPx()
+    drawRect(Color.White)
+    var y = 0f; var row = 0
+    while (y < size.height) {
+        var x = if (row % 2 == 0) 0f else c
+        while (x < size.width) { drawRect(Color(0xFFE5E5EA), Offset(x, y), Size(c, c)); x += 2 * c }
+        y += c; row++
+    }
+}
+
 /** Faint dot grid, used on hero screens and canvases. */
 fun Modifier.dotPattern(color: Color, step: Dp = 18.dp, radius: Dp = 1.dp) = drawBehind {
     val s = step.toPx()

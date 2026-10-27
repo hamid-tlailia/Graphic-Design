@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,6 +25,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
@@ -491,6 +493,7 @@ object Shapes {
                     Box(Modifier.size((hgt * .1f).dp, (hgt * .34f).dp).background(Color(0xFF84B740)))
                     Text(" mada", color = Color(0xFF259BD6), fontSize = fs, fontWeight = FontWeight.Bold, fontFamily = bold)
                 }
+                in socialKinds -> SocialLogo(kind, hgt * .62f)
                 "stcpay" -> Text(buildAnnotatedString {
                     withStyle(SpanStyle(color = Color(0xFF4F008C), fontWeight = FontWeight.Black)) { append("stc") }
                     withStyle(SpanStyle(color = Color(0xFF4F008C))) { append(" pay") }
@@ -517,6 +520,88 @@ object Shapes {
     }
 
     fun paymentIcon(kind: String): String? = when (kind) {
-        "cash" -> "payments"; "wallet" -> "account_balance_wallet"; "bank" -> "account_balance"; "card" -> "credit_card"; else -> null
+        "cash" -> "payments"; "wallet" -> "account_balance_wallet"; "bank" -> "account_balance"; "card" -> "credit_card"
+        "phone" -> "smartphone"; "email" -> "mail"; else -> null
+    }
+
+    // ------------------------------------------------------------------------ social sign-in
+
+    val socials: List<Pair<String, L>> = listOf(
+        "google" to L("Google", "Google"), "facebook" to L("فيسبوك", "Facebook"), "apple" to L("Apple", "Apple"),
+        "x" to L("X", "X"), "microsoft" to L("Microsoft", "Microsoft"), "phone" to L("رقم الجوال", "Phone number"), "email" to L("البريد الإلكتروني", "Email"),
+    )
+    val socialKinds = socials.map { it.first }.toSet()
+
+    fun socialLabel(kind: String, ar: Boolean): String {
+        val name = socials.firstOrNull { it.first == kind }?.second ?: L(kind, kind)
+        return if (ar) "المتابعة باستخدام ${name.ar}" else "Continue with ${name.en}"
+    }
+
+    /** Button colors per brand: background, text, border (null = none). */
+    fun socialColors(kind: String): Triple<Color, Color, Color?> = when (kind) {
+        "facebook" -> Triple(Color(0xFF1877F2), Color.White, null)
+        "apple", "x" -> Triple(Color.Black, Color.White, null)
+        else -> Triple(Color.White, Color(0xFF1F1F1F), Color(0x26000000))
+    }
+
+    /** The brand's mark, drawn to [sizeDp]. Simplified shapes for mock-ups. */
+    @Composable
+    fun SocialLogo(kind: String, sizeDp: Float, onDark: Boolean = false) {
+        val m = Modifier.size(sizeDp.dp)
+        when (kind) {
+            "google" -> Canvas(m) {
+                val sw = size.width * .2f
+                val box = Size(size.width - sw, size.height - sw)
+                val tl = Offset(sw / 2, sw / 2)
+                fun arc(c: Long, start: Float, sweep: Float) = drawArc(Color(c), start, sweep, false, tl, box, style = Stroke(sw))
+                arc(0xFFEA4335, 200f, 118f); arc(0xFFFBBC05, 145f, 60f); arc(0xFF34A853, 40f, 108f); arc(0xFF4285F4, -12f, 55f)
+                drawRect(Color(0xFF4285F4), Offset(size.width * .5f, size.height * .5f - sw / 2), Size(size.width * .5f - sw * .1f, sw))
+            }
+            "facebook" -> Box(m.clip(CircleShape).background(if (onDark) Color.White else Color(0xFF1877F2)), contentAlignment = Alignment.BottomCenter) {
+                Text("f", color = if (onDark) Color(0xFF1877F2) else Color.White, fontSize = (sizeDp * .85f).sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.SansSerif, modifier = Modifier.offset(x = (sizeDp * .06f).dp, y = (sizeDp * .14f).dp))
+            }
+            "apple" -> Canvas(m) {
+                val w = size.width; val h = size.height
+                var body = oval(w * .06f, h * .26f, w * .54f, h * .98f)
+                body = combine(PathOperation.Union, body, oval(w * .46f, h * .26f, w * .94f, h * .98f))
+                body = combine(PathOperation.Difference, body, oval(w * .78f, h * .34f, w * 1.08f, h * .64f))
+                val leaf = Path().apply { moveTo(w * .5f, h * .24f); quadraticTo(w * .52f, h * .02f, w * .72f, h * .02f); quadraticTo(w * .7f, h * .22f, w * .5f, h * .24f); close() }
+                val col = if (onDark) Color.White else Color.Black
+                drawPath(body, col); drawPath(leaf, col)
+            }
+            "x" -> Box(m.clip(RoundedCornerShape((sizeDp * .22f).dp)).background(if (onDark) Color.White else Color.Black), contentAlignment = Alignment.Center) {
+                Text("X", color = if (onDark) Color.Black else Color.White, fontSize = (sizeDp * .66f).sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.SansSerif)
+            }
+            "microsoft" -> Canvas(m) {
+                val g = size.width * .08f; val q = (size.width - g) / 2
+                drawRect(Color(0xFFF25022), Offset.Zero, Size(q, q)); drawRect(Color(0xFF7FBA00), Offset(q + g, 0f), Size(q, q))
+                drawRect(Color(0xFF00A4EF), Offset(0f, q + g), Size(q, q)); drawRect(Color(0xFFFFB900), Offset(q + g, q + g), Size(q, q))
+            }
+            else -> FontIcon(paymentIcon(kind) ?: "login", if (onDark) Color.White else Color(0xFF3D3A66), sizeDp, style = 0)
+        }
+    }
+
+    /** A full "Continue with …" button. Height drives the logo and text size. */
+    @Composable
+    fun SocialButton(kind: String, label: String, modifier: Modifier = Modifier, radiusDp: Float = 12f, fontFamily: FontFamily? = null) {
+        val (bg, fg, border) = socialColors(kind)
+        val shape = RoundedCornerShape(radiusDp.dp)
+        BoxWithConstraints(
+            modifier.clip(shape).background(bg).then(if (border != null) Modifier.border(1.dp, border, shape) else Modifier),
+            contentAlignment = Alignment.Center,
+        ) {
+            val hgt = maxHeight.value.takeIf { it.isFinite() } ?: 48f
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = (hgt * .3f).dp)) {
+                // On the dark (Apple, X) and blue (Facebook) buttons the mark turns white.
+                SocialLogo(kind, hgt * .44f, onDark = bg.luminance() < 0.3f)
+                if (label.isNotBlank()) {
+                    androidx.compose.foundation.layout.Spacer(Modifier.size((hgt * .22f).dp))
+                    Text(
+                        label, color = fg, fontSize = (hgt * .3f).sp, fontWeight = FontWeight.SemiBold, fontFamily = fontFamily, maxLines = 1,
+                        style = androidx.compose.ui.text.TextStyle(textDirection = androidx.compose.ui.text.style.TextDirection.Content),
+                    )
+                }
+            }
+        }
     }
 }

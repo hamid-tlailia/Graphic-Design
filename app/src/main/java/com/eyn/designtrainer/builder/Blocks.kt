@@ -81,6 +81,9 @@ val Palettes = listOf(
     AppPalette(L("ريشة", "Risha"), 0xFF2A2470, 0xFFE8E5FA, 0xFFF2603F, 0xFFF7F6F2, 0xFF1D1A3F),
     AppPalette(L("نعناع", "Mint"), 0xFF0F766E, 0xFFDDF3EF, 0xFFF59E0B, 0xFFF6FBFA, 0xFF0B2E2B),
     AppPalette(L("وردي", "Rose"), 0xFF9D174D, 0xFFFCE7F0, 0xFF1E3A8A, 0xFFFFF8FA, 0xFF3B0A20),
+    AppPalette(L("سماء", "Sky"), 0xFF1D4ED8, 0xFFE0EAFF, 0xFFF59E0B, 0xFFF7F9FF, 0xFF0F1B3D),
+    AppPalette(L("زمرد", "Emerald"), 0xFF128C7E, 0xFFDDF4EF, 0xFF25B864, 0xFFF4F8F7, 0xFF0B2B26),
+    AppPalette(L("حبر", "Ink"), 0xFF111827, 0xFFF1F1EF, 0xFFE11D48, 0xFFFAFAF9, 0xFF111827),
 )
 
 val ProjectFonts = listOf("Tajawal" to Tajawal, "Cairo" to Cairo, "IBM Plex" to Plex)
@@ -237,7 +240,7 @@ fun starterPage(p: AppProject, lang: Lang, name: String) = Page(
 // ============================================================================ rendering
 
 /** Custom blocks that place their title themselves (or have none above the content). */
-private val CUSTOM_OWN_TITLE = setOf(CV.SECTION, CV.DIVIDER, CV.BANNER, CV.PRODUCT, CV.PROFILE, CV.ALERT, CV.ADD_BAR, CV.FREE, CV.CALENDAR, CV.EMPTY, CV.ONBOARD, CV.COUNTDOWN)
+private val CUSTOM_OWN_TITLE = setOf(CV.SECTION, CV.DIVIDER, CV.BANNER, CV.PRODUCT, CV.PROFILE, CV.ALERT, CV.ADD_BAR, CV.FREE, CV.CALENDAR, CV.EMPTY, CV.ONBOARD, CV.COUNTDOWN, CV.MAP)
 
 @Composable
 internal fun PText(
@@ -285,6 +288,8 @@ fun Block.hasActiveItem() = if (kind == BlockKind.CUSTOM) CV.active(variant)
     else (kind == BlockKind.FOOTER && variant == 0) || kind == BlockKind.CATEGORIES || (kind == BlockKind.HEADER && variant == 5)
 /** Items are payment methods picked from [Shapes.payments] instead of icons. */
 fun Block.itemsArePayments() = kind == BlockKind.CUSTOM && CV.payments(variant)
+/** Items are social sign-in buttons picked from [Shapes.socials]. */
+fun Block.itemsAreSocial() = kind == BlockKind.CUSTOM && CV.socials(variant)
 
 fun defaultItems(b: Block, lang: Lang): List<BlockItem> {
     fun i(ar: String, en: String, icon: String = "") = BlockItem(if (lang == Lang.AR) ar else en, icon)

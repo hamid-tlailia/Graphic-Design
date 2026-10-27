@@ -100,6 +100,7 @@ data class El(
     val shape: Int = 0,         // SHAPE: index into Shapes.all; FRAME: index into Shapes.frames
     val inner: Int = 0,         // decorative inner line: 0 none, 1 dotted, 2 dashed, 3 solid
     val innerColor: Long = 0xFFFFFFFF,
+    val onTop: Boolean = false, // always drawn above the other elements
 )
 
 @Serializable

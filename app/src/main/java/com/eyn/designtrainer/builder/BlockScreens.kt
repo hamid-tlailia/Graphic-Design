@@ -689,6 +689,8 @@ fun PageBuilderScreen(id: String) {
         else BlockEditSheet(
             b, p, onChange = { nb -> setBlocks(page.blocks.map { if (it.id == bid) nb else it }) }, onDismiss = { editing = null },
             onProject = { f -> vm.updateProject(id, f) }, onIdentity = { editing = null; nav.navigate(Routes.identity(id)) },
+            drawing = data.designs.firstOrNull { it.id == b.designId },
+            onDrawing = { d -> vm.saveDesign(d) },
             onDraw = {
                 val did = b.designId.ifEmpty { newId() }
                 if (data.designs.none { it.id == did }) vm.saveDesign(
@@ -787,6 +789,7 @@ private fun BlockAction(label: String?, icon: androidx.compose.ui.graphics.vecto
 private fun BlockEditSheet(
     b: Block, p: AppProject, onChange: (Block) -> Unit, onDismiss: () -> Unit,
     onProject: ((AppProject) -> AppProject) -> Unit, onIdentity: () -> Unit, onDraw: () -> Unit,
+    drawing: Design? = null, onDrawing: (Design) -> Unit = {},
 ) {
     val c = Eyn.c
     val ctx = LocalContext.current
@@ -838,6 +841,16 @@ private fun BlockEditSheet(
                     style = Type.small, color = c.muted, modifier = Modifier.padding(bottom = 8.dp),
                 )
                 PrimaryButton(if (b.designId.isEmpty()) tr("ارسم القطعة", "Draw this block") else tr("عدّل الرسم", "Edit the drawing"), onClick = onDraw)
+                if (drawing != null) {
+                    val clear = (drawing.bg ushr 24) == 0L
+                    Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(tr("خلفية الرسم شفافة", "Transparent drawing background"), style = Type.label, color = c.text)
+                            Text(tr("تظهر خلفية الصفحة أو لون القطعة خلف العناصر", "The page or block color shows behind the elements"), style = Type.small, color = c.muted)
+                        }
+                        Switch(clear, { on -> onDrawing(drawing.copy(bg = if (on) 0x00000000 else 0xFFFFFFFF)) })
+                    }
+                }
             }
             if (b.kind == BlockKind.HEADER && (b.variant == 0 || b.variant == 4) && p.applyIdentity) {
                 // The header shows the project logo; let it be changed right here.
@@ -923,11 +936,11 @@ private fun BlockEditSheet(
                             ) { if (on) Box(Modifier.size(12.dp).clip(CircleShape).background(c.primary)) }
                             Spacer(Modifier.width(8.dp))
                         }
-                        if (b.itemsArePayments()) {
+                        if (b.itemsArePayments() || b.itemsAreSocial()) {
                             Box(
                                 Modifier.size(64.dp, 48.dp).clip(RoundedCornerShape(12.dp)).background(c.surface).clickable { payFor = i }.padding(6.dp),
                                 contentAlignment = Alignment.Center,
-                            ) { Shapes.PaymentMark(item.icon, Modifier.fillMaxSize()) }
+                            ) { if (b.itemsAreSocial()) Shapes.SocialLogo(item.icon, 26f) else Shapes.PaymentMark(item.icon, Modifier.fillMaxSize()) }
                             Spacer(Modifier.width(8.dp))
                         }
                         if (b.itemsHaveIcons()) {
@@ -988,7 +1001,8 @@ private fun BlockEditSheet(
                         )
                     }
                     if (b.kind == BlockKind.CUSTOM && CV.qty(b.variant)) {
-                        NumStepper(tr("الكمية", "Quantity"), item.qty.toFloat(), 1f, 99f) { v ->
+                        val unread = b.variant == CV.CHAT_LIST
+                        NumStepper(if (unread) tr("رسائل غير مقروءة", "Unread messages") else tr("الكمية", "Quantity"), item.qty.toFloat(), if (unread) 0f else 1f, 99f) { v ->
                             setItems(items.toMutableList().also { it[i] = item.copy(qty = v.roundToInt()) })
                         }
                     }
@@ -1003,7 +1017,7 @@ private fun BlockEditSheet(
                     }, false,
                 ) {
                     val label = if (b.itemsHaveLabels()) tr0(lang, "عنصر جديد", "New item") else ""
-                    val icon = when { b.itemsArePayments() -> "card"; b.itemsHaveIcons() -> "star"; else -> "" }
+                    val icon = when { b.itemsArePayments() -> "card"; b.itemsAreSocial() -> "email"; b.itemsHaveIcons() -> "star"; else -> "" }
                     setItems(items + BlockItem(label, icon, value = if (b.itemsHaveValue() && b.kind != BlockKind.LIST) "10" else ""))
                 }
             }
@@ -1061,7 +1075,8 @@ private fun BlockEditSheet(
         }
     }
     payFor?.let { i ->
-        PaymentPickerSheet(onDismiss = { payFor = null }) { kind ->
+        val social = b.itemsAreSocial()
+        PaymentPickerSheet(if (social) Shapes.socials else Shapes.payments, social, onDismiss = { payFor = null }) { kind ->
             val items = b.itemsOr(lang)
             onChange(
                 b.copy(
@@ -1069,8 +1084,12 @@ private fun BlockEditSheet(
                         if (i < it.size) {
                             val old = it[i]
                             // Rename the row too when it still carries the previous method's name.
-                            val rename = old.label.isBlank() || Shapes.payments.any { (k, n) -> old.label == n.get(lang) || k == old.icon && old.label.startsWith(n.get(lang)) }
-                            it[i] = old.copy(icon = kind, label = if (rename && b.itemsHaveLabels()) Shapes.paymentName(kind).get(lang) else old.label)
+                            val ar = lang == com.eyn.designtrainer.i18n.Lang.AR
+                            val newLabel = if (social) Shapes.socialLabel(kind, ar) else Shapes.paymentName(kind).get(lang)
+                            val rename = old.label.isBlank() ||
+                                (if (social) Shapes.socials.any { (k, _) -> old.label == Shapes.socialLabel(k, ar) }
+                                else Shapes.payments.any { (k, n) -> old.label == n.get(lang) || k == old.icon && old.label.startsWith(n.get(lang)) })
+                            it[i] = old.copy(icon = kind, label = if (rename && b.itemsHaveLabels()) newLabel else old.label)
                         }
                     },
                 ),
@@ -1085,20 +1104,21 @@ private const val LOGO_ICON = -2
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PaymentPickerSheet(onDismiss: () -> Unit, onPick: (String) -> Unit) {
+private fun PaymentPickerSheet(options: List<Pair<String, com.eyn.designtrainer.i18n.L>>, social: Boolean, onDismiss: () -> Unit, onPick: (String) -> Unit) {
     val c = Eyn.c
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = c.surface, modifier = Modifier.statusBarsPadding()) {
         Column(Modifier.padding(horizontal = 20.dp).navigationBarsPadding().padding(bottom = 16.dp)) {
-            Text(tr("اختر وسيلة الدفع", "Pick a payment method"), style = Type.h2, color = c.text)
+            Text(if (social) tr("اختر حساب الدخول", "Pick a sign-in option") else tr("اختر وسيلة الدفع", "Pick a payment method"), style = Type.h2, color = c.text)
             Spacer(Modifier.height(12.dp))
-            Shapes.payments.chunked(3).forEach { row ->
+            options.chunked(3).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(bottom = 10.dp)) {
                     row.forEach { (k, name) ->
                         Column(
                             Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(c.surfaceAlt).clickable { onPick(k) }.padding(10.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            Shapes.PaymentMark(k, Modifier.size(70.dp, 42.dp))
+                            if (social) Box(Modifier.size(70.dp, 42.dp), contentAlignment = Alignment.Center) { Shapes.SocialLogo(k, 28f) }
+                            else Shapes.PaymentMark(k, Modifier.size(70.dp, 42.dp))
                             Spacer(Modifier.height(6.dp))
                             Text(name.t(), style = Type.small, color = c.text, maxLines = 1)
                         }
@@ -1130,6 +1150,9 @@ private fun itemHeightLabel(b: Block): String? = when (b.kind) {
         CV.BANNER, CV.PRODUCT -> tr("ارتفاع الصورة", "Image height")
         CV.PROFILE -> tr("حجم الصورة الشخصية", "Avatar size")
         CV.EMPTY -> tr("حجم الأيقونة", "Icon size")
+        CV.SOCIAL -> tr("ارتفاع الأزرار", "Button height")
+        CV.MAP -> tr("ارتفاع الخريطة", "Map height")
+        CV.ARTICLES -> tr("ارتفاع صورة المقال الأول", "First article image height")
         CV.ONBOARD -> tr("ارتفاع الصورة", "Image height")
         else -> null
     }
@@ -1141,7 +1164,7 @@ private fun defaultItemHeight(b: Block) = when (b.kind) {
     BlockKind.HERO -> 160f; BlockKind.CATEGORIES -> 54f; BlockKind.LIST -> 56f
     BlockKind.CUSTOM -> when (b.variant) {
         CV.ICON_ROW -> 52f; CV.ICON_GRID -> 56f; CV.CARD_GRID -> 84f; CV.CART -> 64f; CV.PAY_LOGOS -> 30f; CV.ADD_BAR -> 52f
-        CV.BANNER -> 150f; CV.PRODUCT -> 220f; CV.PROFILE -> 60f; CV.EMPTY -> 96f; CV.ONBOARD -> 260f; else -> 56f
+        CV.BANNER -> 150f; CV.PRODUCT -> 220f; CV.PROFILE -> 60f; CV.EMPTY -> 96f; CV.ONBOARD -> 260f; CV.SOCIAL -> 50f; CV.MAP -> 300f; CV.ARTICLES -> 170f; else -> 56f
     }
     else -> 48f
 }
@@ -1179,6 +1202,9 @@ private fun fieldsFor(b: Block): List<Pair<String, Int>> = when (b.kind) {
             CV.EMPTY -> listOf(title, tr("الوصف", "Description") to 3, tr("نص الزر", "Button text") to 2)
             CV.ONBOARD -> listOf(title, tr("الوصف", "Description") to 3, tr("نص الزر", "Button text") to 2, tr("رابط التخطي", "Skip link") to 1)
             CV.PRICING -> listOf(title, currency, tr("المدة (مثل / شهرياً)", "Period (e.g. / month)") to 3, tr("نص الزر", "Button text") to 2)
+            CV.SOCIAL, CV.ARTICLES, CV.CHAT_LIST -> listOf(title)
+            CV.MAP -> listOf(tr("نص بطاقة البحث", "Search card text") to 0)
+            CV.OFFERS -> listOf(title, currency, tr("زر القبول", "Accept button") to 2, tr("زر الرفض", "Decline button") to 3)
             else -> listOf(title, currency)
         }
     }

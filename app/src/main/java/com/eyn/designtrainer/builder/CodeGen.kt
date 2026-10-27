@@ -2,6 +2,7 @@ package com.eyn.designtrainer.builder
 
 import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
 import com.eyn.designtrainer.data.AppProject
 import com.eyn.designtrainer.data.Block
 import com.eyn.designtrainer.data.BlockItem
@@ -316,7 +317,7 @@ object CodeGen {
             box({ wPct = b.widthPct.coerceIn(0.2f, 1f) * 100f; minH = b.minHeight.takeIf { it > 0 } }, content))
     }
 
-    private val ownTitle = setOf(CV.SECTION, CV.DIVIDER, CV.BANNER, CV.PRODUCT, CV.PROFILE, CV.ALERT, CV.ADD_BAR, CV.FREE, CV.CALENDAR, CV.EMPTY, CV.ONBOARD, CV.COUNTDOWN)
+    private val ownTitle = setOf(CV.SECTION, CV.DIVIDER, CV.BANNER, CV.PRODUCT, CV.PROFILE, CV.ALERT, CV.ADD_BAR, CV.FREE, CV.CALENDAR, CV.EMPTY, CV.ONBOARD, CV.COUNTDOWN, CV.MAP)
 
     private fun argb(v: Long): String {
         val a = ((v shr 24) and 0xFF) / 255f
@@ -351,7 +352,7 @@ object CodeGen {
                 e.image.takeIf { it.isNotEmpty() }?.let { image(it) }?.let { N('m', S(), text = it) }
                     ?: icon(if (e.type == ElType.AVATAR) "person" else "image", rgba(e.fg, 0.5f), minOf(e.w, e.h) * 0.4f),
             )
-            ElType.PAYMENT -> listOf(pay(e.icon, e.h))
+            ElType.PAYMENT -> listOf(if (e.icon.startsWith(SOCIAL)) socialButton(e.icon.removePrefix(SOCIAL), e.text, e.h, e.radius) else pay(e.icon, e.h))
             ElType.RATING -> listOf(boxL({ row = true; justify = "between"; wPct = 100f }, (0 until 5).map { i ->
                 icon(if (i < (e.value * 5).roundToInt()) "star" else "star_border", argb(e.fg), minOf(e.h, e.w / 5f))
             }))
@@ -391,7 +392,7 @@ object CodeGen {
         val d = designs(b.designId) ?: return box({ wPct = 100f; h = 120f; r = 16f; bw = 2f; bc = rgba(pal.primary, 0.3f); items = "center"; justify = "center" },
             icon("draw", primary, 28f))
         return boxL({ rel = true; w = d.w; h = d.h; clip = true; bg = argb(d.bg).takeIf { (d.bg shr 24) and 0xFF != 0L }
-            d.bgImage.takeIf { it.isNotEmpty() }?.let { photo = image(it) } }, d.els.map { freeEl(it) })
+            d.bgImage.takeIf { it.isNotEmpty() }?.let { photo = image(it) } }, d.drawOrder().map { freeEl(it) })
     }
 
     /** Payment brand mark as plain boxes and text. */
@@ -405,6 +406,31 @@ object CodeGen {
                 boxL({ row = true }, if (rtl) circles.reversed() else circles)
             } else N('t', S().apply { fs = height * (if (label.length > 6) 0.3f else 0.4f); this.color = color; bold = true; lines = 1 }, text = label)
         return box({ w = height * 1.6f; h = height; r = 6f; bg = back; bw = 1f; bc = "rgba(0,0,0,0.10)"; items = "center"; justify = "center" }, content)
+    }
+
+    private fun col(c: androidx.compose.ui.graphics.Color) = "#%06X".format(c.toArgb() and 0xFFFFFF)
+
+    /** A social sign-in mark as plain boxes, text and icons. */
+    private fun T.socialMark(kind: String, size: Float): N? = when (kind) {
+        "google" -> N('t', S().apply { fs = size * 1.05f; color = "#4285F4"; bold = true }, text = "G")
+        "facebook" -> box({ w = size; h = size; circle = true; bg = "#1877F2"; items = "center"; justify = "end" },
+            N('t', S().apply { fs = size * 0.85f; color = "#FFFFFF"; bold = true }, text = "f"))
+        "x" -> box({ w = size; h = size; r = size * 0.22f; bg = "#000000"; items = "center"; justify = "center" },
+            N('t', S().apply { fs = size * 0.62f; color = "#FFFFFF"; bold = true }, text = "X"))
+        "microsoft" -> box({ gap = size * 0.08f },
+            box({ row = true; gap = size * 0.08f }, box({ w = size * 0.46f; h = size * 0.46f; bg = "#F25022" }), box({ w = size * 0.46f; h = size * 0.46f; bg = "#7FBA00" })),
+            box({ row = true; gap = size * 0.08f }, box({ w = size * 0.46f; h = size * 0.46f; bg = "#00A4EF" }), box({ w = size * 0.46f; h = size * 0.46f; bg = "#FFB900" })))
+        "apple" -> null // no font carries the mark everywhere; the black button and label stand for it
+        else -> icon(Shapes.paymentIcon(kind) ?: "login", "#3D3A66", size)
+    }
+
+    private fun T.socialButton(kind: String, label: String, height: Float, radius: Float, fill: Boolean = true): N {
+        val (bgc, fgc, border) = Shapes.socialColors(kind)
+        return box({
+            row = true; items = "center"; justify = "center"; gap = height * 0.22f; h = height; r = radius; bg = col(bgc); ph = height * 0.3f
+            if (fill) wPct = 100f
+            if (border != null) { bw = 1f; bc = "rgba(0,0,0,0.15)" }
+        }, socialMark(kind, height * 0.44f), if (label.isNotBlank()) N('t', S().apply { fs = height * 0.3f; color = col(fgc); bold = true; lines = 1 }, text = label) else null)
     }
 
     private fun T.stepper(qty: Int, size: Float = 28f) = box({ row = true; items = "center"; gap = 4f },
@@ -601,6 +627,62 @@ object CodeGen {
                 boxL({ row = true; gap = 8f }, its.map { item ->
                     box({ w = 60f; r = 12f; bg = "rgba(255,255,255,0.15)"; pv = 8f; items = "center" }, text(item.value, 22f, onPrimary, bold = true), text(item.label, 11f, onPrimary.withAlpha(0.8f), lines = 1))
                 }))
+            CV.SOCIAL -> if (b.shows(CV.OPT_LABELS)) boxL({ gap = 10f; wPct = 100f }, its.map { socialButton(it.icon, it.label, if (ih > 0) ih else 50f, rad) })
+            else boxL({ row = true; gap = 14f; wPct = 100f; justify = "center" }, its.map {
+                val (bgc, _, border) = Shapes.socialColors(it.icon)
+                val sz = if (ih > 0) ih else 52f
+                box({ w = sz; h = sz; circle = true; bg = col(bgc); items = "center"; justify = "center"; if (border != null) { bw = 1f; bc = "rgba(0,0,0,0.15)" } }, socialMark(it.icon, sz * 0.44f))
+            })
+            CV.MAP -> {
+                val mh = if (ih > 0) ih else 300f
+                boxL({ rel = true; wPct = 100f; h = mh; r = rad; clip = true; bg = "#E8EEF0" }, listOfNotNull(
+                    // Streets as absolutely placed white bars.
+                    box({ abs = true; x = 0f; y = mh * 0.18f; w = 360f; h = 14f; bg = "#FFFFFF" }),
+                    box({ abs = true; x = 0f; y = mh * 0.46f; w = 360f; h = 14f; bg = "#FFFFFF" }),
+                    box({ abs = true; x = 0f; y = mh * 0.72f; w = 360f; h = 14f; bg = "#FFFFFF" }),
+                    box({ abs = true; x = 360f * 0.3f; y = 0f; w = 10f; h = mh; bg = "#FFFFFF" }),
+                    box({ abs = true; x = 360f * 0.58f; y = 0f; w = 10f; h = mh; bg = "#FFFFFF" }),
+                    box({ abs = true; x = 360f * 0.62f; y = mh * 0.06f; w = 110f; h = mh * 0.18f; bg = "#D5EAD2" }),
+                    if (b.shows(CV.OPT_ROUTE)) box({ abs = true; x = 360f * 0.7f; y = mh * 0.1f }, icon("location_on", accent, 36f)) else null,
+                    if (b.shows(CV.OPT_ROUTE)) box({ abs = true; x = 360f * 0.42f; y = mh * 0.5f }, icon("local_taxi", ink, 26f)) else null,
+                    if (b.shows(CV.OPT_INPUT) && b.title.isNotBlank()) box({ abs = true; x = 14f; y = mh - 70f; w = 332f; row = true; items = "center"; gap = 10f; r = 16f; bg = "#FFFFFF"; ph = 14f; pv = 14f },
+                        box({ w = 12f; h = 12f; circle = true; bg = accent }), box({ flex = 1f }, text(b.title, 15f, bold = true)), icon("search", muted, 20f)) else null,
+                ))
+            }
+            CV.OFFERS -> boxL({ gap = 10f; wPct = 100f }, its.map { item ->
+                box({ wPct = 100f; r = rad; bg = card; ph = 14f; pv = 14f; gap = 12f },
+                    box({ row = true; items = "center"; wPct = 100f; gap = 12f },
+                        box({ w = 44f; h = 44f; circle = true; bg = surface; items = "center"; justify = "center" }, text(item.label.take(1), 18f, primary, bold = true)),
+                        box({ flex = 1f }, text(item.label, 15f, bold = true, lines = 1), if (item.note.isNotBlank()) text(item.note, 12f, muted, lines = 1) else null),
+                        text(pr(item.value), 18f, primary, bold = true)),
+                    if (b.button.isNotBlank() || b.body.isNotBlank()) box({ row = true; gap = 10f; wPct = 100f },
+                        if (b.body.isNotBlank()) box({ flex = 1f; h = 42f; r = rad * 0.7f; bw = 1f; bc = ink(0.15f); items = "center"; justify = "center" }, text(b.body, 14f, bold = true)) else null,
+                        if (b.button.isNotBlank()) box({ flex = 1f; h = 42f; r = rad * 0.7f; bg = primary; items = "center"; justify = "center" }, text(b.button, 14f, onPrimary, bold = true)) else null) else null)
+            })
+            CV.ARTICLES -> boxL({ gap = 12f; wPct = 100f }, its.mapIndexed { i, item ->
+                val tag = if (item.value.isNotBlank()) box({ circle = true; bg = surface; ph = 10f; pv = 3f }, text(item.value, 11f, primary, bold = true)) else null
+                if (i == 0 && b.shows(CV.OPT_FEATURED)) box({ wPct = 100f; r = rad; bg = card; clip = true },
+                    if (b.shows(CV.OPT_IMAGE)) placeholder({ wPct = 100f; h = if (ih > 0) ih else 170f }, item.image) else null,
+                    box({ wPct = 100f; ph = 14f; pv = 14f; gap = 6f }, tag, text(item.label, 17f, bold = true), if (item.note.isNotBlank()) text(item.note, 12f, muted) else null))
+                else box({ row = true; items = "center"; wPct = 100f; r = rad; bg = card; ph = 10f; pv = 10f; gap = 12f },
+                    if (b.shows(CV.OPT_IMAGE)) placeholder({ w = 76f; h = 76f; r = rad * 0.6f }, item.image) else null,
+                    box({ flex = 1f; gap = 4f }, tag, text(item.label, 14f, bold = true, lines = 2), if (item.note.isNotBlank()) text(item.note, 11f, muted, lines = 1) else null))
+            })
+            CV.CHAT_LIST -> boxL({ wPct = 100f; r = rad; bg = card; clip = true }, its.flatMapIndexed { i, item ->
+                listOfNotNull(
+                    box({ row = true; items = "center"; wPct = 100f; ph = 12f; pv = 12f; gap = 12f },
+                        boxL({ rel = true; w = 48f; h = 48f }, listOfNotNull(
+                            box({ w = 48f; h = 48f; circle = true; bg = surface; items = "center"; justify = "center" }, text(item.label.take(1), 18f, primary, bold = true)),
+                            if (item.on) box({ abs = true; x = 34f; y = 34f; w = 14f; h = 14f; circle = true; bg = "#2E9E6A"; bw = 2f; bc = "#FFFFFF" }) else null,
+                        )),
+                        box({ flex = 1f },
+                            box({ row = true; items = "center"; wPct = 100f }, box({ flex = 1f }, text(item.label, 15f, bold = true, lines = 1)),
+                                if (item.value.isNotBlank()) text(item.value, 11f, if (item.qty > 0) primary else muted) else null),
+                            box({ row = true; items = "center"; wPct = 100f }, box({ flex = 1f }, text(item.note, 13f, muted, lines = 1)),
+                                if (item.qty > 0) box({ w = 20f; h = 20f; circle = true; bg = primary; items = "center"; justify = "center" }, text("${item.qty}", 11f, onPrimary, bold = true)) else null))),
+                    if (i < its.lastIndex) line() else null,
+                )
+            })
             CV.CHECKS -> boxL({ wPct = 100f; r = rad; bg = card; clip = true }, its.flatMapIndexed { i, item ->
                 listOfNotNull(
                     box({ row = true; items = "center"; wPct = 100f; minH = 52f; ph = 14f; gap = 12f },

@@ -247,12 +247,19 @@ fun RenderEl(e: El, scale: Float, modifier: Modifier = Modifier) {
                 repeat(5) { i -> FontIcon(if (i < filled) "star" else "star_border", e.fg.c(), minOf(e.h, e.w / 5f) * scale) }
             }
             ElType.FRAME -> Shapes.Frame(e.shape, e.borderColor.c(), e.borderW * scale, e.radius * scale)
-            ElType.PAYMENT -> Shapes.PaymentMark(e.icon, Modifier.fillMaxSize())
+            ElType.PAYMENT -> if (e.icon.startsWith(SOCIAL)) Shapes.SocialButton(e.icon.removePrefix(SOCIAL), e.text, Modifier.fillMaxSize(), e.radius * scale, fontAt(e.font))
+                else Shapes.PaymentMark(e.icon, Modifier.fillMaxSize())
             ElType.BOX, ElType.CARD, ElType.DIVIDER -> {}
         }
     }
     }
 }
+
+/** Payment elements whose icon starts with this are social sign-in buttons. */
+const val SOCIAL = "social:"
+
+/** Elements in paint order: "always on top" ones last, otherwise the layer order. */
+fun Design.drawOrder(): List<El> = els.sortedBy { it.onTop }
 
 /** The whole design at a fixed scale (no interaction). */
 @Composable
@@ -267,7 +274,7 @@ fun DesignCanvas(design: Design, scale: Float, modifier: Modifier = Modifier) {
                 .clipToBounds(),
         ) {
             if (design.bgImage.isNotEmpty()) PhotoImage(design.bgImage, 0, Modifier.fillMaxSize())
-            design.els.forEach { RenderEl(it, scale) }
+            design.drawOrder().forEach { RenderEl(it, scale) }
         }
     }
 }

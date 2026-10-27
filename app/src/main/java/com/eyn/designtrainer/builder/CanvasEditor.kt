@@ -81,6 +81,10 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.FitScreen
 import androidx.compose.material.icons.rounded.FlipToBack
+import androidx.compose.material.icons.rounded.VerticalDistribute
+import androidx.compose.material.icons.rounded.HorizontalDistribute
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.PanTool
 import androidx.compose.material.icons.rounded.FlipToFront
 import androidx.compose.material.icons.rounded.FormatAlignCenter
 import androidx.compose.material.icons.rounded.FormatAlignLeft
@@ -176,6 +180,7 @@ import com.eyn.designtrainer.ui.LocalNav
 import com.eyn.designtrainer.ui.LocalVm
 import com.eyn.designtrainer.ui.components.Segmented
 import com.eyn.designtrainer.ui.components.SquareIconButton
+import com.eyn.designtrainer.ui.components.checkerboard
 import com.eyn.designtrainer.ui.components.SwatchRow
 import com.eyn.designtrainer.ui.components.bounceClick
 import com.eyn.designtrainer.ui.components.dotPattern
@@ -260,7 +265,7 @@ class EditorState(initial: Design) {
             ElType.RATING -> 140f to 24f
             ElType.SHAPE -> if (variant in WIDE_SHAPES) 220f to 80f else 120f to 120f
             ElType.FRAME -> design.w - 32f to design.h - 32f
-            ElType.PAYMENT -> 72f to 44f
+            ElType.PAYMENT -> if (kind.startsWith(SOCIAL)) 280f to 48f else 72f to 44f
         }
         val el = El(
             type = type,
@@ -291,13 +296,14 @@ class EditorState(initial: Design) {
                 ElType.SEARCH -> s("بحث…", "Search…")
                 ElType.CHIP -> s("وسم", "Tag")
                 ElType.CHECKBOX -> s("تذكرني", "Remember me")
+                ElType.PAYMENT -> if (kind.startsWith(SOCIAL)) Shapes.socialLabel(kind.removePrefix(SOCIAL), ar) else ""
                 else -> ""
             },
             fontSize = when (type) { ElType.TEXT -> 18f; ElType.CHIP -> 13f; else -> 15f },
             bold = type == ElType.TEXT || type == ElType.BUTTON || type == ElType.CHIP,
             radius = when (type) {
                 ElType.BOX -> 12f; ElType.CARD -> 16f; ElType.BUTTON, ElType.INPUT -> 14f; ElType.IMAGE -> 16f
-                ElType.SEARCH -> 24f; ElType.CHIP -> 16f; ElType.PROGRESS -> 4f; else -> 0f
+                ElType.SEARCH -> 24f; ElType.CHIP -> 16f; ElType.PROGRESS -> 4f; ElType.PAYMENT -> 12f; else -> 0f
             },
             borderW = when (type) { ElType.INPUT -> 1f; ElType.FRAME -> 3f; else -> 0f },
             borderColor = when (type) { ElType.TOGGLE -> 0xFFD5D3E0; ElType.FRAME -> NAVY; else -> LINE },
@@ -365,6 +371,36 @@ class EditorState(initial: Design) {
         val s = selected ?: return
         val r = rectOf(target)
         updateEl(s.id) { it.copy(x = r.left, y = r.top, w = r.width, h = r.height) }
+    }
+
+    /** Visible elements whose centre sits inside [box] and that are smaller than it. */
+    fun childrenOf(box: El): List<El> = design.els.filter {
+        it.id != box.id && it.visible && it.w * it.h < box.w * box.h &&
+            it.x + it.w / 2 in box.x..(box.x + box.w) && it.y + it.h / 2 in box.y..(box.y + box.h)
+    }
+
+    /** Spreads [box]'s children so the gaps between them and the edges are equal along one axis. */
+    fun distribute(box: El, horizontal: Boolean) {
+        val kids = childrenOf(box).sortedBy { if (horizontal) it.x else it.y }
+        if (kids.size < 2) return
+        val total = if (horizontal) box.w else box.h
+        val gap = (total - kids.sumOf { (if (horizontal) it.w else it.h).toDouble() }.toFloat()) / (kids.size + 1)
+        var pos = (if (horizontal) box.x else box.y) + gap
+        val placed = kids.associate { k ->
+            val at = pos; pos += (if (horizontal) k.w else k.h) + gap
+            k.id to (at * 2).roundToInt() / 2f
+        }
+        edit { d -> d.copy(els = d.els.map { el -> placed[el.id]?.let { if (horizontal) el.copy(x = it) else el.copy(y = it) } ?: el }) }
+    }
+
+    /** Lines up [box]'s children on its centre line. */
+    fun centerChildren(box: El, horizontal: Boolean) {
+        val ids = childrenOf(box).map { it.id }.toSet()
+        edit { d ->
+            d.copy(els = d.els.map { el ->
+                if (el.id !in ids) el else if (horizontal) el.copy(x = box.x + (box.w - el.w) / 2) else el.copy(y = box.y + (box.h - el.h) / 2)
+            })
+        }
     }
 
     fun copyStyle() { copiedStyle = selected }
@@ -473,6 +509,8 @@ fun CanvasEditorScreen(id: String) {
     var tab by remember { mutableStateOf(PanelTab.ADD) }
     var zoom by remember { mutableFloatStateOf(1f) }
     var snap by remember { mutableStateOf(true) }
+    // Pan mode: elements ignore touches so the canvas can be scrolled freely.
+    var panMode by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf(false) }
     var pickingIcon by remember { mutableStateOf(false) }
     var panelOpen by remember { mutableStateOf(true) }
@@ -606,7 +644,7 @@ fun CanvasEditorScreen(id: String) {
                 ) {
                     EditableCanvas(
                         state, s, snap, layer, onDoubleTap = { tab = PanelTab.TEXT; panelOpen = true },
-                        showGrid = snap && exportScale == null && !busy, transparent = exportTransparent,
+                        showGrid = snap && exportScale == null && !busy, transparent = exportTransparent, editable = !panMode,
                     )
                 }
             }
@@ -615,6 +653,21 @@ fun CanvasEditorScreen(id: String) {
                     .border(1.dp, c.outline, RoundedCornerShape(14.dp)),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                Box(
+                    Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(if (panMode) c.lilac else Color.Transparent)
+                        .clickable {
+                            panMode = !panMode
+                            if (panMode) state.selectedId = null
+                            Toast.makeText(
+                                ctx,
+                                if (lang == Lang.AR) (if (panMode) "وضع التصفح: التعديل مقفل، اسحب لتمرير اللوحة بحرية" else "وضع التعديل: يمكنك تحريك العناصر")
+                                else (if (panMode) "Browse mode: editing locked, drag to scroll freely" else "Edit mode: elements can be moved"),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        },
+                    contentAlignment = Alignment.Center,
+                ) { Icon(if (panMode) Icons.Rounded.PanTool else Icons.Rounded.Edit, null, tint = if (panMode) c.onLilac else c.text, modifier = Modifier.size(20.dp)) }
+                Box(Modifier.width(1.dp).height(24.dp).background(c.outline))
                 ZoomBtn(Icons.Rounded.Remove) { zoom = (zoom - 0.25f).coerceAtLeast(0.5f) }
                 Text("${(zoom * 100).roundToInt()}%", style = Type.small, color = c.text, modifier = Modifier.clickable { zoom = 1f }.padding(horizontal = 4.dp))
                 ZoomBtn(Icons.Rounded.Add) { zoom = (zoom + 0.25f).coerceAtMost(4f) }
@@ -743,14 +796,15 @@ private fun snapAxis(pos: Float, size: Float, targets: List<Float>, threshold: F
 @Composable
 private fun EditableCanvas(
     state: EditorState, s: Float, snap: Boolean, layer: GraphicsLayer, onDoubleTap: () -> Unit,
-    showGrid: Boolean = false, transparent: Boolean = false,
+    showGrid: Boolean = false, transparent: Boolean = false, editable: Boolean = true,
 ) {
     val d = state.design
     val accent = Color(0xFF3B82F6)
     val guide = Color(0xFFEC4899)
     Box(
         Modifier.size((d.w * s).dp, (d.h * s).dp).shadow(10.dp, RoundedCornerShape(4.dp))
-            .pointerInput(Unit) { detectTapGestures { state.selectedId = null } },
+            .then(if ((d.bg ushr 24) == 0L && !transparent) Modifier.checkerboard() else Modifier)
+            .then(if (editable) Modifier.pointerInput(Unit) { detectTapGestures { state.selectedId = null } } else Modifier),
     ) {
         // Content (this is what gets exported)
         Box(
@@ -760,10 +814,10 @@ private fun EditableCanvas(
             }.then(if (transparent) Modifier else Modifier.background(d.bg.c())).clipToBounds(),
         ) {
             if (d.bgImage.isNotEmpty() && !transparent) PhotoImage(d.bgImage, 0, Modifier.fillMaxSize())
-            d.els.forEach { e ->
+            d.drawOrder().forEach { e ->
                 RenderEl(
                     e, s,
-                    Modifier
+                    if (!editable) Modifier else Modifier
                         .pointerInput(e.id) {
                             detectTapGestures(
                                 onTap = { state.selectedId = e.id },
@@ -822,7 +876,7 @@ private fun EditableCanvas(
         state.guideV?.let { g -> Box(Modifier.absoluteOffset(x = (g * s).dp).width(1.dp).fillMaxHeight().background(guide)) }
         state.guideH?.let { g -> Box(Modifier.absoluteOffset(y = (g * s).dp).height(1.dp).fillMaxWidth().background(guide)) }
         // Selection
-        state.selected?.let { e ->
+        state.selected?.takeIf { editable }?.let { e ->
             state.containerOf(e)?.let { p ->
                 Box(
                     Modifier.absoluteOffset((p.x * s).dp, (p.y * s).dp).size((p.w * s).dp, (p.h * s).dp)
@@ -909,7 +963,8 @@ fun NumStepper(
     val current by rememberUpdatedState(value)
     val change by rememberUpdatedState(onChange)
     fun set(v: Float) = change(((v / step).roundToInt() * step).coerceIn(min, max))
-    Column(Modifier.padding(vertical = 3.dp)) {
+    // Extra space below each slider keeps a tap on the next row's buttons from grabbing it.
+    Column(Modifier.padding(top = 4.dp, bottom = if (slider) 12.dp else 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(label, style = Type.label, color = c.text, modifier = Modifier.weight(1f), maxLines = 1)
             var text by remember(value) { mutableStateOf(value.roundToInt().toString()) }
@@ -943,7 +998,7 @@ fun NumStepper(
             Slider(
                 value.coerceIn(min, max), { set(it) }, valueRange = min..max,
                 colors = SliderDefaults.colors(thumbColor = c.primary, activeTrackColor = c.primary, inactiveTrackColor = c.lilac),
-                modifier = Modifier.height(30.dp),
+                modifier = Modifier.padding(top = 4.dp).height(26.dp),
             )
         }
     }
@@ -963,8 +1018,8 @@ private fun SelectionHeader(state: EditorState) {
             MiniAction(if (e.locked) Icons.Rounded.Lock else Icons.Rounded.LockOpen, if (e.locked) c.accent else c.text) {
                 state.updateEl(e.id) { it.copy(locked = !it.locked) }
             }
-            MiniAction(Icons.Rounded.FlipToFront) { state.moveZ(e.id, 1) }
-            MiniAction(Icons.Rounded.FlipToBack) { state.moveZ(e.id, -1) }
+            MiniAction(Icons.Rounded.FlipToFront) { state.moveZ(e.id, 999) }
+            MiniAction(Icons.Rounded.FlipToBack) { state.moveZ(e.id, -999) }
             MiniAction(Icons.Rounded.ContentCopy) { state.duplicate() }
             MiniAction(Icons.Rounded.Delete, c.danger) { state.delete() }
             MiniAction(Icons.Rounded.Close) { state.selectedId = null }
@@ -1037,6 +1092,8 @@ private fun AddPanel(state: EditorState, onIcon: () -> Unit) {
     FrameGrid(-1) { i -> state.add(ElType.FRAME, lang, variant = i) }
     PanelLabel(tr("وسائل الدفع", "Payment marks"))
     PaymentGrid(null) { k -> state.add(ElType.PAYMENT, lang, kind = k) }
+    PanelLabel(tr("أزرار تسجيل الدخول", "Sign-in buttons"))
+    SocialGrid(null) { k -> state.add(ElType.PAYMENT, lang, kind = SOCIAL + k) }
 }
 
 private val GALLERY_TYPES = setOf(ElType.SHAPE, ElType.FRAME, ElType.PAYMENT)
@@ -1098,6 +1155,18 @@ private fun PaymentGrid(selected: String?, onPick: (String) -> Unit) {
 }
 
 @Composable
+private fun SocialGrid(selected: String?, onPick: (String) -> Unit) {
+    val c = Eyn.c
+    val ar = LocalLang.current == Lang.AR
+    Shapes.socials.forEach { (k, _) ->
+        Box(
+            Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(14.dp))
+                .border(2.dp, if (k == selected) c.primary else Color.Transparent, RoundedCornerShape(14.dp)).bounceClick { onPick(k) },
+        ) { Shapes.SocialButton(k, Shapes.socialLabel(k, ar), Modifier.fillMaxWidth().height(46.dp)) }
+    }
+}
+
+@Composable
 private fun NoSelection() {
     Text(tr("حدّد عنصراً أولاً من اللوحة أو من الطبقات", "Select an element on the canvas or in Layers first"), style = Type.body, color = Eyn.c.muted)
 }
@@ -1105,10 +1174,15 @@ private fun NoSelection() {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StylePanel(state: EditorState, pickPhoto: (String) -> Unit, onRemoveBg: (String) -> Unit, busy: Boolean) {
+    val lang = LocalLang.current
     val e = state.selected
     if (e == null) {
         PanelLabel(tr("خلفية اللوحة", "Canvas background"))
-        SwatchRow(state.design.bg.c(), { col -> state.canvas(null) { it.copy(bg = col.argb()) } })
+        SwatchRow(state.design.bg.c(), { col -> state.canvas(null) { it.copy(bg = col.argb()) } }, allowClear = true)
+        Text(
+            tr("اختر «بدون لون» لتصبح اللوحة شفافة، فتأخذ خلفية الصفحة عند استعمالها كقطعة.", "Pick “no color” for a transparent canvas that takes the page background when used as a block."),
+            style = Type.small, color = Eyn.c.muted, modifier = Modifier.padding(top = 6.dp),
+        )
         Spacer(Modifier.height(8.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             ActionChip(tr("صورة خلفية من الجوال", "Background photo"), Icons.Rounded.AddPhotoAlternate) { pickPhoto(CANVAS_TARGET) }
@@ -1134,6 +1208,18 @@ private fun StylePanel(state: EditorState, pickPhoto: (String) -> Unit, onRemove
         ElType.SHAPE -> { PanelLabel(tr("الشكل", "Shape")); ShapeGrid(e.shape) { i -> state.updateEl(e.id) { it.copy(shape = i) } } }
         ElType.FRAME -> { PanelLabel(tr("نمط الإطار", "Frame style")); FrameGrid(e.shape) { i -> state.updateEl(e.id) { it.copy(shape = i) } } }
         ElType.PAYMENT -> {
+            if (e.icon.startsWith(SOCIAL)) {
+                PanelLabel(tr("زر تسجيل الدخول", "Sign-in button"))
+                SocialGrid(e.icon.removePrefix(SOCIAL)) { k ->
+                    // Keep custom wording; refresh the default "Continue with …" text.
+                    val ar = lang == Lang.AR
+                    val default = Shapes.socials.any { (sk, _) -> e.text == Shapes.socialLabel(sk, ar) }
+                    state.updateEl(e.id) { it.copy(icon = SOCIAL + k, text = if (default || it.text.isBlank()) Shapes.socialLabel(k, ar) else it.text) }
+                }
+                NumStepper(tr("استدارة الزوايا", "Corner radius"), e.radius, 0f, 60f) { v -> state.updateEl(e.id, "r${e.id}") { it.copy(radius = v) } }
+                NumStepper(tr("الشفافية", "Opacity"), e.opacity * 100, 5f, 100f, suffix = "%") { v -> state.updateEl(e.id, "op${e.id}") { it.copy(opacity = v / 100f) } }
+                return
+            }
             PanelLabel(tr("وسيلة الدفع", "Payment method"))
             PaymentGrid(e.icon) { k -> state.updateEl(e.id) { it.copy(icon = k) } }
             NumStepper(tr("الشفافية", "Opacity"), e.opacity * 100, 5f, 100f, suffix = "%") { v -> state.updateEl(e.id, "op${e.id}") { it.copy(opacity = v / 100f) } }
@@ -1273,6 +1359,16 @@ private fun ContentPanel(state: EditorState, onPickIcon: () -> Unit) {
             ) { v -> state.updateEl(e.id, "v${e.id}") { it.copy(value = if (e.type == ElType.RATING) v / 5f else v / 100f) } }
         }
     }
+    if (e.type == ElType.PAYMENT && e.icon.startsWith(SOCIAL)) {
+        PanelLabel(tr("نص الزر", "Button text"))
+        OutlinedTextField(
+            e.text, { v -> state.updateEl(e.id, "t${e.id}") { it.copy(text = v) } },
+            shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth(), singleLine = true, textStyle = Type.body.copy(color = c.text),
+        )
+        PanelLabel(tr("الخط", "Font"))
+        FontPickerRow(e.font, { i -> state.updateEl(e.id) { it.copy(font = i) } }, sample = e.text.take(5).ifBlank { "أبجد Aa" })
+        return
+    }
     if (e.type !in TEXT_TYPES) {
         if (e.type !in VALUE_TYPES) Text(tr("هذا العنصر لا يحتوي نصاً", "This element has no text"), style = Type.body, color = c.muted)
         return
@@ -1356,6 +1452,19 @@ private fun LayoutPanel(state: EditorState) {
         ActionChip(tr("إلى الخلف", "Backward"), Icons.Rounded.FlipToBack) { state.moveZ(e.id, -1) }
         ActionChip(tr("في المقدمة", "To front"), Icons.Rounded.FlipToFront) { state.moveZ(e.id, 999) }
         ActionChip(tr("في الخلفية", "To back"), Icons.Rounded.FlipToBack) { state.moveZ(e.id, -999) }
+        ActionChip(if (e.onTop) tr("✓ دائماً فوق الكل", "✓ Always on top") else tr("دائماً فوق الكل", "Always on top"), Icons.Rounded.VerticalAlignTop, selected = e.onTop) {
+            state.updateEl(e.id) { it.copy(onTop = !it.onTop) }
+        }
+    }
+    val inside = state.childrenOf(e)
+    if (inside.size >= 2) {
+        PanelLabel(tr("توزيع العناصر داخل هذا العنصر (${inside.size})", "Distribute the ${inside.size} elements inside this one"))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            ActionChip(tr("مسافات أفقية متساوية", "Equal horizontal spacing"), Icons.Rounded.HorizontalDistribute) { state.distribute(e, true) }
+            ActionChip(tr("مسافات عمودية متساوية", "Equal vertical spacing"), Icons.Rounded.VerticalDistribute) { state.distribute(e, false) }
+            ActionChip(tr("توسيط عمودي للكل", "Center all vertically"), Icons.Rounded.AlignVerticalCenter) { state.centerChildren(e, false) }
+            ActionChip(tr("توسيط أفقي للكل", "Center all horizontally"), Icons.Rounded.AlignHorizontalCenter) { state.centerChildren(e, true) }
+        }
     }
     Spacer(Modifier.height(6.dp))
     Text(tr("نصيحة: اضغط مرتين على عنصر لتعديل محتواه", "Tip: double-tap an element to edit its content"), style = Type.small, color = c.muted)

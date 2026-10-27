@@ -33,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.clickable
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -115,6 +116,29 @@ fun StudioScreen() {
                 val p = AppProject(name = if (lang == Lang.AR) "قهوتي" else "My Cafe")
                 vm.saveProject(p)
                 nav.navigate(Routes.identity(p.id))
+            }
+        }
+
+        Box(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) { SectionTitle(tr("قوالب تطبيقات كاملة", "Complete app templates")) }
+        Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            com.eyn.designtrainer.builder.AppTemplates.all.forEach { tpl ->
+                // Built once per language for the preview; tapping builds a fresh copy with new ids.
+                val sample = remember(lang) { tpl.build(lang) }
+                Column(
+                    Modifier.width(170.dp).clip(RoundedCornerShape(20.dp)).background(c.surface).border(1.dp, c.outline, RoundedCornerShape(20.dp))
+                        .clickable {
+                            val p = tpl.build(lang)
+                            vm.saveProject(p)
+                            nav.navigate(Routes.build(p.id))
+                        }.padding(10.dp),
+                ) {
+                    Box(Modifier.fillMaxWidth().height(190.dp).clip(RoundedCornerShape(14.dp)).background(sample.theme().bg)) {
+                        Scaled(150f / 360f) { PageView(sample.pages.first(), sample) }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(tpl.name.t(), style = Type.label, color = c.text, maxLines = 1)
+                    Text(tpl.desc.t(), style = Type.small, color = c.muted, maxLines = 2)
+                }
             }
         }
 
