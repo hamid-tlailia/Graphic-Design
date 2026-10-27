@@ -373,34 +373,59 @@ class EditorState(initial: Design) {
         updateEl(s.id) { it.copy(x = r.left, y = r.top, w = r.width, h = r.height) }
     }
 
-    /** Visible elements whose centre sits inside [box] and that are smaller than it. */
+    /** Visible elements smaller than [box] that overlap it (they may stick out, like tab bar bubbles). */
     fun childrenOf(box: El): List<El> = design.els.filter {
         it.id != box.id && it.visible && it.w * it.h < box.w * box.h &&
-            it.x + it.w / 2 in box.x..(box.x + box.w) && it.y + it.h / 2 in box.y..(box.y + box.h)
+            it.x < box.x + box.w && it.x + it.w > box.x && it.y < box.y + box.h && it.y + it.h > box.y
     }
 
-    /** Spreads [box]'s children so the gaps between them and the edges are equal along one axis. */
+    /**
+     * [box]'s children grouped into units that move together: elements stacked on the same column
+     * (or row, for vertical moves) — a circle, the icon on it and its label — form one unit.
+     */
+    fun unitsIn(box: El, horizontal: Boolean): List<List<El>> {
+        fun start(e: El) = if (horizontal) e.x else e.y
+        fun len(e: El) = if (horizontal) e.w else e.h
+        val groups = childrenOf(box).map { mutableListOf(it) }.toMutableList()
+        var merged = true
+        while (merged) {
+            merged = false
+            loop@ for (i in groups.indices) for (j in i + 1 until groups.size) {
+                val a0 = groups[i].minOf { start(it) }; val a1 = groups[i].maxOf { start(it) + len(it) }
+                val b0 = groups[j].minOf { start(it) }; val b1 = groups[j].maxOf { start(it) + len(it) }
+                val overlap = minOf(a1, b1) - maxOf(a0, b0)
+                if (overlap >= 0.5f * minOf(a1 - a0, b1 - b0)) { groups[i] += groups.removeAt(j); merged = true; break@loop }
+            }
+        }
+        return groups.sortedBy { g -> g.minOf { start(it) } }
+    }
+
+    /** Spreads [box]'s units so the gaps between them and the edges are equal along one axis. */
     fun distribute(box: El, horizontal: Boolean) {
-        val kids = childrenOf(box).sortedBy { if (horizontal) it.x else it.y }
-        if (kids.size < 2) return
-        val total = if (horizontal) box.w else box.h
-        val gap = (total - kids.sumOf { (if (horizontal) it.w else it.h).toDouble() }.toFloat()) / (kids.size + 1)
+        val units = unitsIn(box, horizontal)
+        if (units.size < 2) return
+        fun start(g: List<El>) = g.minOf { if (horizontal) it.x else it.y }
+        fun size(g: List<El>) = g.maxOf { if (horizontal) it.x + it.w else it.y + it.h } - start(g)
+        val gap = ((if (horizontal) box.w else box.h) - units.sumOf { size(it).toDouble() }.toFloat()) / (units.size + 1)
         var pos = (if (horizontal) box.x else box.y) + gap
-        val placed = kids.associate { k ->
-            val at = pos; pos += (if (horizontal) k.w else k.h) + gap
-            k.id to (at * 2).roundToInt() / 2f
+        val shift = mutableMapOf<String, Float>()
+        units.forEach { g ->
+            val d = ((pos - start(g)) * 2).roundToInt() / 2f
+            g.forEach { shift[it.id] = d }
+            pos += size(g) + gap
         }
-        edit { d -> d.copy(els = d.els.map { el -> placed[el.id]?.let { if (horizontal) el.copy(x = it) else el.copy(y = it) } ?: el }) }
+        edit { d -> d.copy(els = d.els.map { el -> shift[el.id]?.let { if (horizontal) el.copy(x = el.x + it) else el.copy(y = el.y + it) } ?: el }) }
     }
 
-    /** Lines up [box]'s children on its centre line. */
+    /** Lines up each unit of [box]'s children on its centre line, keeping each unit's own layout. */
     fun centerChildren(box: El, horizontal: Boolean) {
-        val ids = childrenOf(box).map { it.id }.toSet()
-        edit { d ->
-            d.copy(els = d.els.map { el ->
-                if (el.id !in ids) el else if (horizontal) el.copy(x = box.x + (box.w - el.w) / 2) else el.copy(y = box.y + (box.h - el.h) / 2)
-            })
+        val shift = mutableMapOf<String, Float>()
+        unitsIn(box, !horizontal).forEach { g ->
+            val lo = g.minOf { if (horizontal) it.x else it.y }; val hi = g.maxOf { if (horizontal) it.x + it.w else it.y + it.h }
+            val target = (if (horizontal) box.x + (box.w - (hi - lo)) / 2 else box.y + (box.h - (hi - lo)) / 2)
+            g.forEach { shift[it.id] = target - lo }
         }
+        edit { d -> d.copy(els = d.els.map { el -> shift[el.id]?.let { if (horizontal) el.copy(x = el.x + it) else el.copy(y = el.y + it) } ?: el }) }
     }
 
     fun copyStyle() { copiedStyle = selected }
@@ -1371,6 +1396,10 @@ private fun ContentPanel(state: EditorState, onPickIcon: () -> Unit) {
     }
     if (e.type !in TEXT_TYPES) {
         if (e.type !in VALUE_TYPES) Text(tr("هذا العنصر لا يحتوي نصاً", "This element has no text"), style = Type.body, color = c.muted)
+        if (state.unitsIn(e, true).size >= 2) Text(
+            tr("لتوزيع العناصر داخله بمسافات متساوية افتح تبويب «الحجم والموضع».", "To space the elements inside it evenly, open the “Size & position” tab."),
+            style = Type.small, color = c.primary, modifier = Modifier.padding(top = 8.dp),
+        )
         return
     }
     PanelLabel(tr("النص", "Text"))
@@ -1437,6 +1466,16 @@ private fun LayoutPanel(state: EditorState) {
         ActionChip(tr("توسيط كامل", "Center both ways"), Icons.Rounded.CenterFocusStrong) { state.centerIn(target) }
         ActionChip(tr("ملء الحاوية", "Fill container"), Icons.Rounded.FitScreen) { state.fillTarget(target) }
     }
+    val units = state.unitsIn(e, true).size
+    if (units >= 2) {
+        PanelLabel(tr("توزيع العناصر داخل هذا العنصر ($units مجموعات)", "Distribute what's inside ($units groups)"))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            ActionChip(tr("مسافات أفقية متساوية", "Equal horizontal spacing"), Icons.Rounded.HorizontalDistribute) { state.distribute(e, true) }
+            ActionChip(tr("مسافات عمودية متساوية", "Equal vertical spacing"), Icons.Rounded.VerticalDistribute) { state.distribute(e, false) }
+            ActionChip(tr("توسيط عمودي للكل", "Center all vertically"), Icons.Rounded.AlignVerticalCenter) { state.centerChildren(e, false) }
+            ActionChip(tr("توسيط أفقي للكل", "Center all horizontally"), Icons.Rounded.AlignHorizontalCenter) { state.centerChildren(e, true) }
+        }
+    }
     PanelLabel(tr("الحجم", "Size"))
     NumStepper(tr("العرض", "Width"), e.w, 1f, maxOf(d.w * 2, e.w)) { v ->
         state.updateEl(e.id, "w${e.id}") { it.copy(w = v, h = if (it.type in ROUND) v else it.h) }
@@ -1454,16 +1493,6 @@ private fun LayoutPanel(state: EditorState) {
         ActionChip(tr("في الخلفية", "To back"), Icons.Rounded.FlipToBack) { state.moveZ(e.id, -999) }
         ActionChip(if (e.onTop) tr("✓ دائماً فوق الكل", "✓ Always on top") else tr("دائماً فوق الكل", "Always on top"), Icons.Rounded.VerticalAlignTop, selected = e.onTop) {
             state.updateEl(e.id) { it.copy(onTop = !it.onTop) }
-        }
-    }
-    val inside = state.childrenOf(e)
-    if (inside.size >= 2) {
-        PanelLabel(tr("توزيع العناصر داخل هذا العنصر (${inside.size})", "Distribute the ${inside.size} elements inside this one"))
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            ActionChip(tr("مسافات أفقية متساوية", "Equal horizontal spacing"), Icons.Rounded.HorizontalDistribute) { state.distribute(e, true) }
-            ActionChip(tr("مسافات عمودية متساوية", "Equal vertical spacing"), Icons.Rounded.VerticalDistribute) { state.distribute(e, false) }
-            ActionChip(tr("توسيط عمودي للكل", "Center all vertically"), Icons.Rounded.AlignVerticalCenter) { state.centerChildren(e, false) }
-            ActionChip(tr("توسيط أفقي للكل", "Center all horizontally"), Icons.Rounded.AlignHorizontalCenter) { state.centerChildren(e, true) }
         }
     }
     Spacer(Modifier.height(6.dp))

@@ -299,6 +299,31 @@ class ScreenshotTest {
         org.junit.Assert.assertEquals(listOf(60f, 160f, 260f), xs)
     }
 
+    @Test fun distributeKeepsStackedButtonsTogether() {
+        val st = EditorState(blankDesign(Lang.AR).copy(w = 360f, h = 163f))
+        st.add(ElType.BOX, Lang.AR); val bar = st.selectedId!!
+        st.updateEl(bar) { it.copy(x = 5f, y = 110f, w = 350f, h = 51f) }
+        // Four tab buttons at uneven spots, each sticking out above the bar.
+        listOf(18f, 100f, 190f, 290f).forEachIndexed { i, x ->
+            st.add(ElType.CIRCLE, Lang.AR); st.updateEl(st.selectedId!!) { it.copy(x = x, y = 85f, w = 56f, h = 56f, text = "w$i") }
+            st.add(ElType.CIRCLE, Lang.AR); st.updateEl(st.selectedId!!) { it.copy(x = x + 6f, y = 91f, w = 44f, h = 44f, text = "d$i") }
+            st.add(ElType.ICON, Lang.AR); st.updateEl(st.selectedId!!) { it.copy(x = x + 16f, y = 101f, w = 24f, h = 24f, text = "i$i") }
+            st.add(ElType.TEXT, Lang.AR); st.updateEl(st.selectedId!!) { it.copy(x = x - 2f, y = 140f, w = 60f, h = 18f, text = "t$i") }
+        }
+        org.junit.Assert.assertEquals(4, st.unitsIn(st.design.els.first { it.id == bar }, true).size)
+        st.distribute(st.design.els.first { it.id == bar }, true)
+        val els = st.design.els
+        fun x(t: String) = els.first { it.text == t }.x
+        // Units are 60 wide (label sticks out 2 on each side): gap = (350 - 240) / 5 = 22.
+        val starts = (0..3).map { x("t$it") }
+        org.junit.Assert.assertEquals(listOf(27f, 109f, 191f, 273f), starts)
+        (0..3).forEach { i ->
+            org.junit.Assert.assertEquals(x("t$i") + 2f, x("w$i"))
+            org.junit.Assert.assertEquals(x("w$i") + 6f, x("d$i"))
+            org.junit.Assert.assertEquals(x("w$i") + 16f, x("i$i"))
+        }
+    }
+
     @Test fun s51_social_canvas() {
         val st = EditorState(blankDesign(Lang.AR).copy(w = 360f, h = 420f))
         com.eyn.designtrainer.builder.Shapes.socials.forEachIndexed { i, (k, _) ->
